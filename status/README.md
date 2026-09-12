@@ -22,6 +22,11 @@ pip install git+https://github.com/Aloecraft-org/technoproj@v0.1.0
 technoproj-status-collect --profile internal --out /var/www/html/status/data
 ```
 
+**The collector imports only the standard library**, so `--no-deps` is always
+safe for it. PyYAML is technoproj's dependency for the changelog engine; a
+host that only collects never needs it. That matters on a node whose Python
+is provisioned offline from a wheelhouse — see dart2 below.
+
 ## Two rules that shape everything else
 
 **Filtering happens at collection, never in the browser.** A public page that
@@ -99,6 +104,22 @@ looking at this.
 
 This is the fleet's first internal-only vhost; nothing else establishes the
 pattern.
+
+### Why dart2 installs it to /opt/status rather than normally
+
+Two facts about that node, both in `bootstrap_dartvps_musl_py.sh`:
+
+- it installs `--no-index` from a wheelhouse tarball, offline by design, so
+  a git install is already against the grain and is at least `--no-deps`;
+- it begins `rm -rf /usr/local/pyalt`, so anything pip-installed into that
+  prefix is destroyed by the next `install_musl_py` — and the collector
+  would stop silently, weeks later, with nothing pointing at the cause.
+
+So dart2 installs with `--target /opt/status/lib`, which the wipe does not
+reach, and runs it as `PYTHONPATH=/opt/status/lib python3 -m
+technoproj.status` rather than through a console script inside the prefix.
+
+Any node with a normal Python can use the plain form above.
 
 ### The token
 
