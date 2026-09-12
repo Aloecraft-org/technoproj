@@ -5,10 +5,21 @@ written so the same build serves a public page by changing one argument.
 
 ```
 status/
-  collect.py          fetches; decides what a profile may publish
+  collect.py          a shim; the collector is technoproj/status.py
   build.sh --out DIR  site contract: offline, hermetic, never deploys
-  profiles/           internal.json, public.json
   template/           index.html, style.css, app.js
+
+technoproj/
+  status.py           fetches; decides what a profile may publish
+  profiles/           internal.json, public.json -- one copy, read by
+                      the installed collector and by build.sh alike
+```
+
+On a host, the collector arrives with the package:
+
+```sh
+pip install git+https://github.com/Aloecraft-org/technoproj@v0.1.0
+technoproj-status-collect --profile internal --out /var/www/html/status/data
 ```
 
 ## Two rules that shape everything else
@@ -59,72 +70,44 @@ repositories. Release data needs no token: it comes from the public mirror.
 
 ## Deploying to dart2
 
-The page is a normal site under the lk_web contract; the data directory is
-server-generated, exactly like `/releases/`. **These two manifest entries need
-Michael's approval — `manifest/` is not edited without it.**
+Landed in lk2: `manifest/domains.json` carries `status.aloecraft.org`, and
+`manifest/sites.json` carries `status-board` (the static page) and
+`status-data` (the directory the collector writes, `serves: server` so
+deploy.py's `--delete` stays off it). The nginx drop-in and the autoserv
+action are in `ansible/ansible-dart2.yaml` and
+`lk_bootstrap/dartvps/autoserv.json`.
 
-```json
-// manifest/domains.json
-{"node": "dart2", "domain": "status.aloecraft.org",
- "www_root": "/var/www/html/status/"}
-```
-
-```json
-// manifest/sites.json
-{
-  "name": "status-board", "vhost": "status.aloecraft.org", "path": "/",
-  "serves": "static",
-  "source": {"repo": "Aloecraft-org/technoproj", "ref": "main"},
-  "build": {"kind": "cmd", "cmd": ["./status/build.sh"], "output": "status/_out"},
-  "note": "Internal only, enforced in nginx (site-extra/status.aloecraft.org/access.conf) rather than by port -- dart2's nginx is public on 443. data/ below is server-generated."
-},
-{
-  "name": "status-data", "vhost": "status.aloecraft.org", "path": "/data/",
-  "serves": "server", "generator": "status/collect.py",
-  "schedule": "autoserv on dart2, every 10m",
-  "note": "Written on the box by collect.py. Declared so deploy.py keeps --delete off it."
-}
+```sh
+lk_web/stage.py  status-board
+lk_web/deploy.py status-board -n      # read the deletions first
+lk_web/deploy.py status-board
+ansible-playbook ansible/ansible-dart2.yaml -i ./ansible/inventory \
+    --limit aloecraft-dart2 --tags install_status -b
 ```
 
 ### Internal-only, and the one carve-out that matters
 
 dart2's nginx is **public on 443** — glance and reportserv are restricted by
 firewall because they sit on high ports, but a vhost cannot be. So access is
-an nginx drop-in at `/etc/nginx/site-extra/status.aloecraft.org/access.conf`:
+an nginx drop-in at `/etc/nginx/site-extra/status.aloecraft.org/access.conf`
+allowing `192.168.2.0/24`, the DMZ subnet, and denying everything else.
 
-```nginx
-# The DMZ is the only network dart2 is on; 192.168.2.0/24 is its subnet.
-location / {
-    allow 192.168.2.0/24;
-    deny  all;
-}
-
-# Load-bearing: dart2 issues certificates with `certbot --webroot`, so the
-# ACME challenge must stay reachable from the public internet. Deny it and
-# the first renewal fails -- ninety days after everything looked fine.
-location /.well-known/acme-challenge/ {
-    allow all;
-    root /var/www/html/status;
-}
-```
+**It must leave `/.well-known/acme-challenge/` open.** dart2 issues
+certificates with `certbot --webroot`, so denying that path passes the first
+issuance and fails the first *renewal* — ninety days later, when nobody is
+looking at this.
 
 This is the fleet's first internal-only vhost; nothing else establishes the
 pattern.
 
-### autoserv
+### The token
 
-One action and one trigger in `lk_bootstrap/dartvps/autoserv.json`:
-
-```json
-{"name": "status_collect",
- "command": "GITHUB_TOKEN=$(cat /etc/status/github_token) /home/ansibleusr/scripts/collect.py --profile internal --out /var/www/html/status/data",
- "timeout": 300, "enabled": true}
-```
-
-```json
-{"action": "status_collect", "type": "cron",
- "cron_expr": "*/10 * * * *", "enabled": true}
-```
+`GITHUB_TOKEN` lives at `/etc/status/github_token`, mode 0600, owned by the
+user autoserv runs as. Without it the collector still runs and still writes a
+complete `status.json` — builds and activity are skipped and the page says
+so, because unauthenticated GitHub allows 60 requests an hour and this would
+exhaust that on one run across seven repositories. Release data needs no
+token: it comes from the public mirror.
 
 ## Becoming the public page
 

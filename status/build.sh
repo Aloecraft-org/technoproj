@@ -28,8 +28,12 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-if [ ! -f "$HERE/profiles/$PROFILE.json" ]; then
-    echo "build.sh: no profile '$PROFILE' in $HERE/profiles/" >&2
+# One copy of the profiles, in the package, because the collector reads them
+# there when installed. Two copies would be the drift this repository exists
+# to end.
+PROFILES="$HERE/../technoproj/profiles"
+if [ ! -f "$PROFILES/$PROFILE.json" ]; then
+    echo "build.sh: no profile '$PROFILE' in $PROFILES/" >&2
     exit 2
 fi
 

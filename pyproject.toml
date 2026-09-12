@@ -19,6 +19,9 @@ email = "michael@aloecraft.org"
 # script/changelog.py it replaces -- migrating a repository is a change of
 # command name, not of usage.
 technoproj-changelog = "technoproj.changelog:main"
+# The status board's collector, so a host gets it by installing the package
+# rather than by a second copy rsynced into the fleet.
+technoproj-status-collect = "technoproj.status:main"
 # Everything else: placing version.mk into a consuming repo, and checking it
 # has not drifted.
 technoproj = "technoproj.cli:main"
@@ -27,4 +30,4 @@ technoproj = "technoproj.cli:main"
 include = ["technoproj*"]
 
 [tool.setuptools.package-data]
-technoproj = ["data/*.mk"]
+technoproj = ["data/*.mk", "profiles/*.json"]
