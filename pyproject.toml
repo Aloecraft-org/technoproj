@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "technoproj"
+version = "0.1.0"
+description = "Shared release tooling for Aloecraft projects: one changelog engine and one version.mk, driven by each repository's .technoproj declaration."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["PyYAML>=5.1"]
+
+[[project.authors]]
+name = "Michael Godfrey"
+email = "michael@aloecraft.org"
+
+[project.scripts]
+# The changelog engine, argument-for-argument compatible with the
+# script/changelog.py it replaces -- migrating a repository is a change of
+# command name, not of usage.
+technoproj-changelog = "technoproj.changelog:main"
+# Everything else: placing version.mk into a consuming repo, and checking it
+# has not drifted.
+technoproj = "technoproj.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["technoproj*"]
+
+[tool.setuptools.package-data]
+technoproj = ["data/*.mk"]

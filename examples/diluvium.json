@@ -1,0 +1,12 @@
+{
+  "project": "Diluvium",
+  "intro_extra": "Note that tags carry suffixes (`_release`, `_build1`) because this\nrepository also holds upstream Lua's tags, and a bare `v5.4.7` is\nLua's rather than Diluvium's.\n",
+  "facts": [
+    {"keys": ["lua_base"], "fmt": "Lua {lua_base}"},
+    {"keys": ["bytecode_format"], "fmt": "bytecode format `{bytecode_format:#x}`"}
+  ],
+  "tag_rule": "prefix",
+  "stamps": [
+    {"file": "VERSION", "find": "^(\\d+\\.\\d+\\.\\d+)_build\\d+$", "spelling": "base"}
+  ]
+}

@@ -1,0 +1,27 @@
+schema: 1
+repo: Aloecraft-org/fixture
+releases:
+  - version: "0.2.0"
+    tag: v0.2.0
+    date: "2026-09-12"
+    status: released
+    stable: true
+    latest: true
+    mirror: true
+    widget_abi: 3
+    summary: |
+      The fixture's second release.
+    added:
+      - A thing.
+      - |
+        A thing with a second line,
+        which must stay inside its bullet.
+  - version: "0.1.0"
+    tag: v0.1.0
+    date: "2026-09-01"
+    status: released
+    stable: true
+    mirror: true
+    widget_abi: 2
+    summary: |
+      The first one.

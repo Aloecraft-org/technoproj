@@ -1,0 +1,9 @@
+{
+  "TECHNO_VERSION": {"major": 0, "minor": 2, "patch": 0, "pre": null},
+  "TECHNO_CHANGELOG": {
+    "project": "Fixture",
+    "facts": [{"keys": ["widget_abi"], "fmt": "widget ABI {widget_abi}"}],
+    "tag_rule": "exact",
+    "emit_json": true
+  }
+}
