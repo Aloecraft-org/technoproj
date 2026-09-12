@@ -1,0 +1,19 @@
+{
+  "name": "internal",
+  "title": "Aloecraft — build & release",
+  "include": {
+    "release":  ["title", "repo", "version", "releases", "source",
+                 "mirror_generated_at", "mirror_age_s"],
+    "build":    ["status", "workflow", "at", "age_s", "branch", "url", "note"],
+    "activity": ["at", "age_s", "subject", "sha", "url", "note"]
+  },
+  "projects": {
+    "diluvium":     {"title": "Diluvium",      "repo": "Aloecraft-org/diluvium"},
+    "diluvium-drt": {"title": "DRT",           "repo": "Aloecraft-org/diluvium-drt"},
+    "diluvium-lab": {"title": "Diluvium Lab",  "repo": "Aloecraft-org/diluvium-lab"},
+    "dollup":       {"title": "dollup",        "repo": "Aloecraft-org/dollup"},
+    "aloelite":     {"title": "aloelite",      "repo": "Aloecraft-org/aloelite"},
+    "xtrshow":      {"title": "xtrshow",       "repo": "Aloecraft-org/xtrshow"},
+    "schema":       {"title": "aloeschema",    "repo": "Aloecraft-org/aloeschema"}
+  }
+}

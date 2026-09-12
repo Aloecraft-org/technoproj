@@ -1,0 +1,34 @@
+{
+  "name": "public",
+  "title": "Aloecraft — status",
+
+  "//": [
+    "The public profile is an ALLOWLIST, and it is applied at collection.",
+    "A field absent from `include` is never written to status.json, so it",
+    "cannot be recovered by reading the file the page fetches.",
+    "",
+    "Deliberately absent, each for a reason:",
+    "  build.url, build.branch  name internal branches and expose which",
+    "                           workflows exist and how often they fail",
+    "  build.workflow           same",
+    "  activity (entirely)      commit subjects are unreviewed prose",
+    "  mirror_generated_at      infrastructure timing, not a user fact",
+    "",
+    "`status` is kept because a public status page that cannot say a build",
+    "is failing is not a status page."
+  ],
+
+  "include": {
+    "release":  ["title", "repo", "version", "source"],
+    "build":    ["status"],
+    "activity": []
+  },
+  "projects": {
+    "diluvium":     {"title": "Diluvium",     "repo": "Aloecraft-org/diluvium"},
+    "diluvium-drt": {"title": "DRT",          "repo": "Aloecraft-org/diluvium-drt"},
+    "diluvium-lab": {"title": "Diluvium Lab", "repo": "Aloecraft-org/diluvium-lab"},
+    "dollup":       {"title": "dollup",       "repo": "Aloecraft-org/dollup"},
+    "aloelite":     {"title": "aloelite",     "repo": "Aloecraft-org/aloelite"},
+    "xtrshow":      {"title": "xtrshow",      "repo": "Aloecraft-org/xtrshow"}
+  }
+}
