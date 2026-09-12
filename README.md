@@ -143,4 +143,5 @@ rules that look like style and are not:
   Version('0.0.1-beta104')` is `True`.
 
 The full scheme, artifact naming and per-repository migration live in
-`ALIGNMENT.md`.
+[`doc/ALIGNMENT.md`](doc/ALIGNMENT.md) — this repository holds the canonical
+copy, so a project vendoring it can diff against upstream.
