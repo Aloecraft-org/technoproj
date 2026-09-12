@@ -2,12 +2,37 @@ schema: 1
 repo: Aloecraft-org/technoproj
 
 releases:
+  - version: "0.2.0"
+    tag: v0.2.0
+    date: "2026-09-12"
+    status: released
+    stable: true
+    latest: true
+    mirror: false
+    summary: |
+      The status board's collector ships inside the package, so a host gets
+      it by installing technoproj rather than by a second copy rsynced into
+      the fleet.
+
+      0.1.0 could not do this: it has no `technoproj/status.py`, so an
+      install pinned at that tag resolves `-m technoproj.status` to nothing.
+      Any host deploying the board needs this version or later.
+    added:
+      - |
+        `technoproj-status-collect`, and `technoproj.status` as a module, so
+        the collector can be run either way.
+      - |
+        `technoproj/profiles/` as package data -- one copy, read by the
+        installed collector and by `status/build.sh` alike.
+    changed:
+      - |
+        `status/collect.py` is now a three-line shim onto the package, kept
+        so `status/` still runs straight from a checkout.
   - version: "0.1.0"
     tag: v0.1.0
     date: "2026-09-12"
     status: released
     stable: true
-    latest: true
     mirror: false
     summary: |
       One changelog engine and one `version.mk`, with everything

@@ -7,6 +7,31 @@ edit that file, then run `technoproj-changelog generate`.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0] - 2026-09-12
+
+`v0.2.0`
+
+The status board's collector ships inside the package, so a host gets
+it by installing technoproj rather than by a second copy rsynced into
+the fleet.
+
+0.1.0 could not do this: it has no `technoproj/status.py`, so an
+install pinned at that tag resolves `-m technoproj.status` to nothing.
+Any host deploying the board needs this version or later.
+
+### Added
+
+- `technoproj-status-collect`, and `technoproj.status` as a module, so
+  the collector can be run either way.
+- `technoproj/profiles/` as package data -- one copy, read by the
+  installed collector and by `status/build.sh` alike.
+
+### Changed
+
+- `status/collect.py` is now a three-line shim onto the package, kept
+  so `status/` still runs straight from a checkout.
+
+
 ## [0.1.0] - 2026-09-12
 
 `v0.1.0`
