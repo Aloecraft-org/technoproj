@@ -44,6 +44,8 @@ import os
 import re
 import sys
 
+from . import version as _version
+
 try:
     import yaml
 except ImportError:
@@ -136,8 +138,17 @@ def source():
 
 
 def load():
-    with open(source()) as f:
-        return yaml.safe_load(f)
+    """A missing CHANGELOG.yaml is the first thing an adopting repository
+    hits, so it gets a sentence rather than a traceback."""
+    try:
+        with open(source()) as f:
+            return yaml.safe_load(f)
+    except OSError as e:
+        sys.exit("changelog.py: cannot read %s (%s)\n"
+                 "  Every command here reads CHANGELOG.yaml; create one, or "
+                 "run from the repository root." % (source(), e))
+    except yaml.YAMLError as e:
+        sys.exit("changelog.py: %s is not valid YAML\n  %s" % (source(), e))
 
 
 def read(path):
@@ -445,9 +456,10 @@ def render_json(doc):
 # ---------------------------------------------------------------------------
 
 def spell(version, spelling):
-    if spelling == "semver":
-        return pep440_to_semver(version)
-    return version
+    """Delegated to technoproj.version so there is one implementation of
+    the spelling rules. This used to respell PEP 440 into SemVer, which was
+    the wrong direction once the canonical form became the tag body."""
+    return _version.respell(version, spelling)
 
 
 def consistency(doc):
@@ -460,16 +472,21 @@ def consistency(doc):
     version = str(r["version"])
     where = "newest entry (%s)" % version
 
-    m = re.fullmatch(r"(\d+\.\d+\.\d+)(?:(?:rc|a|b)\d+)?", version)
-    if not m:
-        bad.append("%s: version is not X.Y.Z or a candidate of it" % where)
-        return bad
-    base = m.group(1)
+    # The entry's `version` is the TAG BODY -- `1.4.0-rc.1`, not `1.4.0rc1`.
+    # That is what validate() enforces under tag_rule: exact, and this used
+    # to demand the PEP 440 spelling instead, so no prerelease could satisfy
+    # both. Plain releases hid it: X.Y.Z is the same in every spelling.
+    parsed = None
+    try:
+        parsed = _version.parse(version)
+    except _version.VersionError as e:
+        bad.append("%s: %s" % (where, e))
 
-    for st in CFG["stamps"]:
+    # Not a return: a bad version shape used to skip every stamp below and
+    # the repository's own checks, so one problem silenced all the others.
+    for st in (CFG["stamps"] if parsed else []):
         path, pattern = st["file"], st["find"]
-        want = spell(base if st.get("spelling") != "pep440" else version,
-                     st.get("spelling"))
+        want = spell(version, st.get("spelling"))
         try:
             text = read(path)
         except OSError as e:
@@ -484,7 +501,7 @@ def consistency(doc):
             bad.append("%s carries version %s but %s implies %r"
                        % (path, ", ".join(repr(w) for w in wrong), where, want))
 
-    bad += repo_checks(doc, base)
+    bad += repo_checks(doc, _version.base(parsed) if parsed else version)
     return bad
 
 

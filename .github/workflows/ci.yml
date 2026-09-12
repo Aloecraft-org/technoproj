@@ -25,3 +25,13 @@ jobs:
           mkdir -p /tmp/consumer && cd /tmp/consumer
           technoproj sync
           technoproj check
+      # Dogfood: this repository carries its own .technoproj and CHANGELOG,
+      # so it can run every check it asks consumers to run.
+      - name: our own declaration holds
+        run: |
+          technoproj check
+          technoproj-changelog validate
+          technoproj-changelog consistency
+          technoproj-changelog check
+      - name: the status board builds and stays self-contained
+        run: ./status/build.sh --out /tmp/status-out

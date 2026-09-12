@@ -25,6 +25,7 @@ that changes when nobody touched it.
 
 ```sh
 technoproj sync                      # place script/version.mk
+technoproj show                      # this repo's version, every spelling
 technoproj-changelog validate        # schema + consistency
 technoproj-changelog generate        # write CHANGELOG.md and changelog.json
 ```
@@ -88,8 +89,13 @@ Everything that differs between repositories goes in `.technoproj` under
 | `emit_json` | generate `changelog.json` — required for a `source: changelog` release mirror |
 | `stamps` | generic version-location checks: a file, a pattern, and which spelling it should hold |
 
-`stamps` is how a repository stops hand-typing its version in several
-places. xtrshow keeps the same number in four files by hand today.
+`stamps` is how a repository stops its version drifting across several
+files. To be exact about the promise: it **checks**, it does not write — the
+only files this package writes are `CHANGELOG.md`, `changelog.json` and
+`script/version.mk`. So the number is still typed in each place, and CI
+fails when the places disagree. That is a real improvement over silent
+drift, and it is a smaller claim than "stop hand-typing it". xtrshow keeps
+the same version in four files today with nothing checking them.
 
 ### `TECHNO_VERSION.pre`
 
@@ -129,6 +135,36 @@ so the first `generate` after migrating produces a one-line diff.
 
 **If anything else in your output changes, the declaration is wrong — not the
 engine.**
+
+## dollup packages
+
+A library distributed through a dollup repo declares `TECHNO_DOLLUP` beside
+its version, and the package is generated rather than hand-written:
+
+```sh
+technoproj dollup-manifest --out ../std-repo
+# -> ../std-repo/packages/token-bucket/0.1.0/{manifest.json,guest/…}
+```
+
+It computes the `files` hashes instead of having someone type them, takes the
+version from `TECHNO_VERSION` so it agrees with the tag, and adds a **`source`
+block** the format did not previously carry:
+
+```json
+"source": {
+  "repo":   "https://github.com/Aloecraft-org/token-bucket-lib",
+  "commit": "0603050ce2fbe89fb04b6e67c9004ffa6810cfb8",
+  "ref":    "v0.1.0"
+}
+```
+
+Without it a published package cannot be traced back to the tree it came
+from — the provenance `BUILDINFO.txt` gives a binary release. A dirty tree is
+refused rather than recorded quietly, because a manifest naming a commit
+whose files differ from what was hashed reads as provenance and is not.
+
+`guest.main` is omitted for a library; its absence is what says so
+(RepoFormat §5). See `technoproj/dollup.py` for the declaration shape.
 
 ## The version scheme
 

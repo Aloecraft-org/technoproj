@@ -1,0 +1,29 @@
+{
+  "TECHNO_VERSION": {
+    "major": 0,
+    "minor": 1,
+    "patch": 0,
+    "pre": null
+  },
+  "TECHNO_CHANGELOG": {
+    "project": "technoproj",
+    "tag_rule": "exact",
+    "emit_json": false,
+    "stamps": [
+      {
+        "file": "pyproject.toml",
+        "find": "^version\\s*=\\s*\"([^\"]+)\"",
+        "spelling": "pep440"
+      }
+    ],
+    "latest_requires": [
+      "stable"
+    ]
+  },
+  "TECHNO_INIT_DIRS": [
+    ".nogit",
+    ".dump",
+    "script"
+  ],
+  "TECHNO_COPYRIGHT": "Copyright Michael Godfrey [2026] | aloecraft.org [michael@aloecraft.org]"
+}
