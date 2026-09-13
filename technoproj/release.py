@@ -614,8 +614,13 @@ def doctor(proj, args):
               % (d, "  (the publish job asks for contents: write explicitly, "
                     "so this default does not block it)" if d == "read" else ""))
     elif st in (403, 404):
-        print("    GITHUB_TOKEN  cannot read the setting (HTTP %s) -- needs "
-              "admin; not required for a release" % st)
+        # Distinct from the `admin` flag above: that is the person's role on
+        # the repository, this is whether the credential in hand carries the
+        # `administration` scope. A fine-grained token routinely has the
+        # first and not the second, and a release needs neither.
+        print("    GITHUB_TOKEN  this credential cannot read the setting "
+              "(HTTP %s: no `administration` scope, whatever the role above "
+              "says). Not needed for a release." % st)
 
     st, rules = api("/repos/%s/rulesets" % owner_repo)
     if st == 200 and isinstance(rules, list):
