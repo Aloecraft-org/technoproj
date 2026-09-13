@@ -4,6 +4,10 @@ Shared release tooling for Aloecraft projects: **one changelog engine and one
 `version.mk`**, with everything repository-specific declared in that
 repository's `.technoproj` rather than forked into a copy.
 
+> **Setting up a project?** [`doc/STANDARD.md`](doc/STANDARD.md) is the one
+> document to read: how to write a consistent changelog, and the release
+> action that goes with it.
+
 Before this existed, `changelog.py` was 423 / 484 / 576 lines in diluvium /
 diluvium-drt / aloelite — one tool, copied twice, then drifted. `version.mk`
 was byte-identical in aloelite and xtrshow and Cargo-shaped in both,
@@ -85,9 +89,13 @@ file name, the release title, the artifact pattern, the registry leg. Every
 field has a default; see `examples/release.json` for the three shapes the
 fleet has.
 
-[`doc/RELEASING.md`](doc/RELEASING.md) is the canonical process and is
-vendored byte-identical into each repository, like `ALIGNMENT.md`.
-[`doc/RELEASE-ADOPTION.md`](doc/RELEASE-ADOPTION.md) tracks where each one is.
+**[`doc/STANDARD.md`](doc/STANDARD.md) is the document to point a project
+at** — the changelog schema and the release actions, with every example in it
+verified against the engine by `tests/test_doc_examples.py` rather than
+asserted. [`doc/RELEASING.md`](doc/RELEASING.md) is the runbook for cutting a
+release once a project is set up, and
+[`doc/RELEASE-ADOPTION.md`](doc/RELEASE-ADOPTION.md) tracks where each
+repository stands. All are vendored byte-identical, like `ALIGNMENT.md`.
 
 ### Why `version.mk` is copied rather than imported
 

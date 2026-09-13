@@ -51,9 +51,17 @@ different commit than the one being built.
   wrote it again in shell and diluvium-drt a third time; the release
   page and BUILDINFO.txt now come from one renderer and cannot
   disagree.
-- `doc/RELEASING.md`, the canonical process. A repository vendors it
-  byte-identical, like `ALIGNMENT.md`, so "how do I release this" has
-  one answer everywhere.
+- `doc/STANDARD.md`, the document a project is pointed at: the
+  changelog schema and the release action in one place. Every example
+  in it is extracted and run against the engine by
+  `tests/test_doc_examples.py` -- the entry validates, its `stamps`
+  example is shown failing when the file disagrees, the caller passes
+  `check-workflow`, and the version it tells a project to pin is
+  checked against this package's own. Documentation is checked rather
+  than trusted, for the same reason `version.mk` is.
+- `doc/RELEASING.md`, the runbook for cutting a release. A repository
+  vendors both byte-identical, like `ALIGNMENT.md`, so "how do I
+  release this" has one answer everywhere.
 
 ### Changed
 

@@ -1,6 +1,6 @@
 # Release adoption
 
-Where each repository stands against [`RELEASING.md`](RELEASING.md). Produced
+Where each repository stands against [`STANDARD.md`](STANDARD.md). Produced
 by `technoproj release doctor` in each tree, not from memory; re-run it rather
 than trusting this table's age.
 

@@ -1,5 +1,9 @@
 # Releasing
 
+> Setting a project up, rather than cutting a release from one already set
+> up? [`STANDARD.md`](STANDARD.md) is the spec: the changelog schema, the
+> workflow contract and the adoption checklist.
+
 **The canonical copy of this document lives in
 [Aloecraft-org/technoproj](https://github.com/Aloecraft-org/technoproj).**
 A consuming repository vendors it byte-identical, like `ALIGNMENT.md`, and
@@ -287,14 +291,7 @@ mis-stamped tree, not a release.
 technoproj release doctor
 ```
 
-lists what is missing, in order. The usual sequence:
-
-1. `pip install "git+https://github.com/Aloecraft-org/technoproj@v0.3.0"`
-2. Add `TECHNO_CHANGELOG` to `.technoproj` and delete `script/changelog.py`.
-   The engine reproduces each repository's committed output from its
-   declaration alone — if anything but the generated preamble changes, the
-   declaration is wrong, not the engine.
-3. `technoproj sync` to place `script/version.mk`, and commit it.
-4. Add `TECHNO_RELEASE`, and the `release.yml` above.
-5. `technoproj release check-workflow` until it passes.
-6. Add `technoproj release check-workflow` to CI.
+lists what is missing, in order. [`STANDARD.md`](STANDARD.md) is the full
+spec — the changelog schema, the workflow contract, and the adoption
+checklist — and is the document to point a project at. This one is the
+runbook for cutting a release once that is done.
