@@ -1,0 +1,254 @@
+name: release-preflight
+
+# The first half of every Aloecraft release, shared rather than copied.
+#
+# A consuming repository's release.yml calls this, then builds whatever it
+# builds, then calls release-publish.yml. What this job settles -- which tag
+# is being released, whether this run publishes, which commit, and what the
+# changelog says about it -- was written four times in four repositories,
+# in shell, differently, and the differences were not deliberate:
+#
+#   aloelite   `ref` must already be a tag; there is no `tag` input
+#   dollup     `tag` input, and a tag that ALREADY EXISTS is refused
+#   drt        same as dollup
+#   diluvium   same again, with a third tag spelling
+#
+# So the same tag was releasable in one repository and refused in the next,
+# and a release that died of infrastructure could be re-run in one and
+# needed a fresh version number in another. This settles it one way: a tag
+# that exists is fine and the release is updated in place, PROVIDED it
+# points at the commit being built. A tag that points somewhere else is the
+# one case that is always a mistake, and it is refused with the two commits
+# named.
+#
+# Outputs are the release contract. `technoproj-changelog release-check`
+# prints version=, prerelease= and dev= and this passes them straight
+# through, so the changelog stays the single source of what a release is.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Commit, branch or tag to release (blank = the calling ref)"
+        type: string
+        required: false
+        default: ""
+      tag:
+        description: "Tag name, e.g. v0.1.0. Required when publishing."
+        type: string
+        required: false
+        default: ""
+      publish:
+        description: "Publish, rather than rehearse"
+        type: boolean
+        required: false
+        default: false
+      python-version:
+        type: string
+        required: false
+        default: "3.12"
+      technoproj:
+        description: >-
+          Override the technoproj to install. Empty means the commit this
+          very workflow was read from, which is the only spelling that
+          cannot drift from it.
+        type: string
+        required: false
+        default: ""
+    outputs:
+      tag:        { value: "${{ jobs.preflight.outputs.tag }}" }
+      publish:    { value: "${{ jobs.preflight.outputs.publish }}" }
+      sha:        { value: "${{ jobs.preflight.outputs.sha }}" }
+      branch:     { value: "${{ jobs.preflight.outputs.branch }}" }
+      version:    { value: "${{ jobs.preflight.outputs.version }}" }
+      prerelease: { value: "${{ jobs.preflight.outputs.prerelease }}" }
+      dev:        { value: "${{ jobs.preflight.outputs.dev }}" }
+
+jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      publish: ${{ steps.resolve.outputs.publish }}
+      sha: ${{ steps.resolve.outputs.sha }}
+      branch: ${{ steps.resolve.outputs.branch }}
+      version: ${{ steps.gate.outputs.version }}
+      prerelease: ${{ steps.gate.outputs.prerelease }}
+      dev: ${{ steps.gate.outputs.dev }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      # `job_workflow_sha` is the commit THIS file was read from. Installing
+      # the engine from it means the tool and the workflow are one version
+      # by construction: a caller pins `@v0.3.0` once and cannot end up
+      # running v0.3.0's workflow against some other release's engine, which
+      # is the drift a second pin would reintroduce.
+      - name: Install technoproj
+        run: |
+          set -eu
+          PIN='${{ inputs.technoproj || github.job_workflow_sha }}'
+          pip install --quiet "git+https://github.com/Aloecraft-org/technoproj@${PIN}"
+          echo "technoproj $(technoproj version) from ${PIN}"
+
+      - name: Resolve the tag, the commit and whether this publishes
+        id: resolve
+        env:
+          EVENT: ${{ github.event_name }}
+          IN_REF: ${{ inputs.ref }}
+          IN_TAG: ${{ inputs.tag }}
+          IN_PUBLISH: ${{ inputs.publish }}
+          CALLER_REF: ${{ github.ref }}
+        run: |
+          set -eu
+          TAG="$IN_TAG"
+          PUBLISH="${IN_PUBLISH:-false}"
+          case "$EVENT:$CALLER_REF" in
+            push:refs/tags/*)
+              # A tag push always publishes: that is what pushing one means.
+              TAG="${CALLER_REF#refs/tags/}"
+              PUBLISH=true
+              ;;
+          esac
+          SHA=$(git rev-parse HEAD)
+
+          if [ "$PUBLISH" = true ] && [ -z "$TAG" ]; then
+            echo "::error::publish=true needs a tag name: pass the tag input to the dispatch, or push the tag."
+            exit 1
+          fi
+
+          # An existing tag is a re-run, not an error -- as long as it names
+          # this commit. A tag that names a different commit would publish a
+          # release whose own tag disagrees with its assets, so it is the
+          # one shape refused here.
+          if [ -n "$TAG" ] && git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            AT=$(git rev-parse "refs/tags/$TAG^{commit}")
+            if [ "$AT" != "$SHA" ]; then
+              echo "::error::tag $TAG already exists and points at $AT, but this run is building $SHA. Re-run the release for the commit the tag names, or choose a new tag."
+              exit 1
+            fi
+            echo "::notice::$TAG already exists at this commit -- the release will be updated in place."
+          fi
+
+          # The branch, for BUILDINFO.txt (doc/ALIGNMENT.md §5). A tag push
+          # carries none, so it is derived and what was found is recorded
+          # rather than a guess.
+          BRANCH=""
+          if [ -n "${IN_REF:-}" ] && git show-ref -q --verify "refs/remotes/origin/$IN_REF"; then
+            BRANCH="$IN_REF"
+          else
+            BRANCH=$(git branch -r --contains "$SHA" --format='%(refname:lstrip=3)' \
+                     | grep -vx HEAD | head -1 || true)
+          fi
+
+          {
+            echo "tag=$TAG"
+            echo "publish=$PUBLISH"
+            echo "sha=$SHA"
+            echo "branch=${BRANCH:-(detached)}"
+          } >> "$GITHUB_OUTPUT"
+
+      # A release must not be a way around the checks. These are the same
+      # ones CI runs, and `technoproj release preflight` runs them on a
+      # workstation, so a failure here is one someone could have seen first.
+      - name: The standard gates
+        run: |
+          set -eu
+          if [ -f script/version.mk ]; then
+            technoproj check
+          else
+            echo "no script/version.mk -- nothing to check"
+          fi
+          technoproj release check-workflow
+
+      - name: The changelog describes this tag
+        id: gate
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          PUBLISH: ${{ steps.resolve.outputs.publish }}
+        run: |
+          set -eu
+          if [ ! -f CHANGELOG.yaml ]; then
+            echo "::warning::no CHANGELOG.yaml: release notes will be this tag's name alone, and nothing gates what it claims."
+            {
+              echo "version=${TAG#v}"
+              echo "prerelease=true"
+              echo "dev=false"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          technoproj-changelog validate
+          technoproj-changelog check
+          technoproj-changelog consistency
+          # A rehearsal with no tag is checked against the newest entry, so
+          # the pipeline can be proved before a tag exists.
+          T="$TAG"
+          [ -n "$T" ] || T=$(technoproj-changelog latest)
+          if [ "$PUBLISH" = true ]; then
+            technoproj-changelog release-check --tag "$T" --publish | tee -a "$GITHUB_OUTPUT"
+          else
+            technoproj-changelog release-check --tag "$T" | tee -a "$GITHUB_OUTPUT"
+          fi
+
+      # The notes and the compatibility facts are rendered here, from the
+      # tree being released, and travel to the publish leg as an artifact.
+      # That leg then needs no checkout at all: it cannot accidentally
+      # publish notes rendered from a different commit than the assets.
+      - name: Render the release notes and BUILDINFO facts
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          DEV: ${{ steps.gate.outputs.dev }}
+          VERSION: ${{ steps.gate.outputs.version }}
+        run: |
+          set -eu
+          mkdir -p release_meta
+          : > release_meta/facts.txt
+          if [ ! -f CHANGELOG.yaml ]; then
+            printf '%s\n' "Release $TAG." > release_meta/notes.md
+          elif [ "$DEV" = true ]; then
+            # A dev build has no entry of its own and never will; saying so
+            # is more use than rendering the entry it was cut from.
+            {
+              printf '%s\n\n' "Development build \`$TAG\` of $VERSION."
+              printf '%s\n' "Not a release: cut from one commit, not mirrored, and pruned once newer builds exist. See BUILDINFO.txt for the commit."
+            } > release_meta/notes.md
+            technoproj-changelog buildinfo --tag "$TAG" > release_meta/facts.txt
+          else
+            technoproj-changelog render md --tag "$TAG" > release_meta/notes.md
+            technoproj-changelog buildinfo --tag "$TAG" > release_meta/facts.txt
+          fi
+          echo "--- notes.md ---";  cat release_meta/notes.md
+          echo "--- facts.txt ---"; cat release_meta/facts.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-meta
+          path: release_meta/
+          if-no-files-found: error
+
+      - name: Summary
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          PUBLISH: ${{ steps.resolve.outputs.publish }}
+          SHA: ${{ steps.resolve.outputs.sha }}
+          VERSION: ${{ steps.gate.outputs.version }}
+          PRERELEASE: ${{ steps.gate.outputs.prerelease }}
+          DEV: ${{ steps.gate.outputs.dev }}
+        run: |
+          {
+            echo "### Release preflight"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| tag | \`${TAG:-(none -- rehearsal)}\` |"
+            echo "| commit | \`$SHA\` |"
+            echo "| version | \`$VERSION\` |"
+            echo "| publish | \`$PUBLISH\` |"
+            echo "| prerelease | \`$PRERELEASE\` |"
+            echo "| dev build | \`$DEV\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

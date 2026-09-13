@@ -11,11 +11,15 @@ copy is checked rather than trusted.
     technoproj version           the installed engine version
     technoproj show              this repo's version in every spelling
     technoproj dollup-manifest   build a dollup package from .technoproj
+    technoproj release ...       the release process (see release.py)
 
-That is the whole of it. `sync` is how a repository adopts a new version.mk;
-`check` in CI is what stops the copy going stale, which is the failure this
-package exists to end -- version.mk was byte-identical in two repositories
-and Cargo-shaped in both, including the one with no Cargo.
+`sync` is how a repository adopts a new version.mk; `check` in CI is what
+stops the copy going stale, which is the failure this package exists to end
+-- version.mk was byte-identical in two repositories and Cargo-shaped in
+both, including the one with no Cargo.
+
+`release` is the same bargain applied to the step that ships: one procedure,
+declared per repository rather than reinvented in each one's workflow.
 """
 import argparse
 import filecmp
@@ -96,14 +100,66 @@ def project_command(args) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="technoproj", description=__doc__.split("\n")[0])
-    ap.add_argument("command", choices=["sync", "check", "version", "show",
-                                        "dollup-manifest"])
-    ap.add_argument("--out", help="dollup-manifest: directory to build into")
-    ap.add_argument("--allow-dirty", action="store_true",
-                    help="dollup-manifest: record a dirty tree instead of refusing")
-    ap.add_argument("--manifest-only", action="store_true",
-                    help="dollup-manifest: write the manifest, not the files")
+    sub = ap.add_subparsers(dest="command", required=True)
+    for name, help_ in (("sync", "write script/version.mk from the package"),
+                        ("check", "fail if the copy has drifted (for CI)"),
+                        ("version", "the installed engine version"),
+                        ("show", "this repo's version in every spelling")):
+        sub.add_parser(name, help=help_)
+
+    dm = sub.add_parser("dollup-manifest",
+                        help="build a dollup package from .technoproj")
+    dm.add_argument("--out", help="directory to build into")
+    dm.add_argument("--allow-dirty", action="store_true",
+                    help="record a dirty tree instead of refusing")
+    dm.add_argument("--manifest-only", action="store_true",
+                    help="write the manifest, not the files")
+
+    rel = sub.add_parser("release", help="the release process")
+    rsub = rel.add_subparsers(dest="release_command", required=True)
+    for name, help_ in (
+            ("plan", "what a release of this tree would be"),
+            ("preflight", "run every gate CI runs, here, first"),
+            ("check-workflow", "the workflow follows the standard contract"),
+    ):
+        p = rsub.add_parser(name, help=help_)
+        if name != "check-workflow":
+            p.add_argument("--tag", help="the tag to release "
+                                         "(default: .technoproj's)")
+        if name == "preflight":
+            p.add_argument("--publish", action="store_true",
+                           help="the strict gate a publishing run faces; "
+                                "without it this is the rehearsal")
+    doc = rsub.add_parser("doctor",
+                          help="what this repo is missing, and which release "
+                               "route is open")
+    doc.add_argument("--offline", action="store_true",
+                     help="do not ask GitHub anything")
+    cut = rsub.add_parser("cut", help="start the release, by dispatch")
+    cut.add_argument("--tag", help="the tag to release "
+                                   "(default: .technoproj's)")
+    cut.add_argument("--ref", help="branch or SHA to build "
+                                   "(default: the default branch)")
+    cut.add_argument("--publish", action="store_true",
+                     help="create the tag and the release; without it the "
+                          "run is a rehearsal that publishes nothing")
+    cut.add_argument("--yes", action="store_true",
+                     help="actually dispatch; without it this only prints "
+                          "what it would send")
+
     args = ap.parse_args(argv)
+
+    if args.command == "release":
+        from . import release as _release
+        proj = read_technoproj()
+        if proj is None:
+            return 1
+        from . import version as _v
+        try:
+            return _release.main(proj, args)
+        except (_release.ReleaseError, _v.VersionError) as e:
+            print("technoproj: %s" % e, file=sys.stderr)
+            return 1
 
     if args.command in ("show", "dollup-manifest"):
         return project_command(args)

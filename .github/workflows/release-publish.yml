@@ -1,0 +1,144 @@
+name: release-publish
+
+# The second half of every Aloecraft release: BUILDINFO.txt, SHA256SUMS.txt,
+# the notes, and the GitHub release itself.
+#
+# It takes the preflight job's outputs and the artifacts the caller's build
+# jobs uploaded, and it checks nothing out. That is deliberate: the notes
+# and the compatibility facts were rendered by preflight from the commit
+# being released and travel here as an artifact, so there is no second
+# checkout that could render a release's notes from a different tree than
+# its assets.
+#
+# PERMISSIONS. A called workflow cannot raise its own; the CALLING JOB
+# grants them:
+#
+#     publish:
+#       needs: [preflight, build]
+#       permissions:
+#         contents: write          <-- this line, or the run dies at upload
+#       uses: Aloecraft-org/technoproj/.github/workflows/release-publish.yml@vX.Y.Z
+#
+# `technoproj release check-workflow` fails when it is missing, because a
+# 403 at the last step of a twenty-minute build is the most expensive way
+# to learn it.
+#
+# The tag is created HERE, by this run's GITHUB_TOKEN, when it does not
+# already exist -- which is why a release never requires anyone to push a
+# `v*` tag. Pushing tags needs a permission that differs per person and per
+# automation session; `contents: write` on this one job is a permission the
+# repository grants itself and can be read back.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "The tag to release. Created if it does not exist."
+        type: string
+        required: true
+      sha:
+        description: "The commit the tag names"
+        type: string
+        required: true
+      version:
+        type: string
+        required: true
+      branch:
+        type: string
+        required: false
+        default: "(detached)"
+      prerelease:
+        description: "From the changelog's `stable`, not chosen here"
+        type: string
+        required: false
+        default: "true"
+      name:
+        description: "Release title (default: the tag)"
+        type: string
+        required: false
+        default: ""
+      artifacts:
+        description: "download-artifact pattern for the build jobs' uploads"
+        type: string
+        required: false
+        default: "dist-*"
+
+jobs:
+  publish:
+    name: Publish release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect the build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ inputs.artifacts }}
+          path: release_dist
+          merge-multiple: true
+      - name: Collect the notes and facts preflight rendered
+        uses: actions/download-artifact@v4
+        with:
+          name: release-meta
+          path: release_meta
+
+      # Five lines every Aloecraft release carries (doc/ALIGNMENT.md §5),
+      # then this project's own compatibility facts -- the same ones the
+      # changelog entry states, printed by the same tool, so the release
+      # page and BUILDINFO.txt cannot disagree.
+      - name: BUILDINFO.txt
+        env:
+          TAG: ${{ inputs.tag }}
+          VERSION: ${{ inputs.version }}
+          SHA: ${{ inputs.sha }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          set -eu
+          {
+            echo "tag: $TAG"
+            echo "version: $VERSION"
+            echo "commit: $SHA"
+            echo "branch: $BRANCH"
+            echo "built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            cat release_meta/facts.txt
+          } > release_dist/BUILDINFO.txt
+          cat release_dist/BUILDINFO.txt
+
+      # Over every other asset, BUILDINFO included; written last so the glob
+      # does not include it (doc/ALIGNMENT.md §6).
+      - name: SHA256SUMS.txt
+        env:
+          ARTIFACTS: ${{ inputs.artifacts }}
+        run: |
+          set -eu
+          cd release_dist
+          if [ -z "$(find . -maxdepth 1 -type f -print -quit)" ]; then
+            echo "::error::no assets to publish: the build jobs uploaded nothing matching '$ARTIFACTS'."
+            exit 1
+          fi
+          find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -printf '%P\0' \
+            | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Create or update the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          target_commitish: ${{ inputs.sha }}
+          name: ${{ inputs.name || inputs.tag }}
+          body_path: release_meta/notes.md
+          files: release_dist/*
+          prerelease: ${{ inputs.prerelease == 'true' }}
+          fail_on_unmatched_files: true
+
+      - name: Summary
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          {
+            echo "### Published \`$TAG\`"
+            echo
+            echo "https://github.com/${{ github.repository }}/releases/tag/$TAG"
+            echo
+            echo '```'
+            cat release_dist/SHA256SUMS.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

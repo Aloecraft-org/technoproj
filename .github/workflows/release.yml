@@ -1,0 +1,94 @@
+name: Release
+
+# technoproj's own release, and the worked example every other repository
+# copies. It is deliberately the smallest conforming caller there can be:
+# preflight, one build job, publish. A repository with six build jobs and a
+# container image changes the middle and nothing else.
+#
+# Two ways to start it, and only two:
+#
+#   technoproj release cut --tag v0.3.0 --publish --yes
+#   the Actions tab -> Release -> Run workflow, with the same three inputs
+#
+# Pushing the tag also works and is not the recommended route: the publish
+# job creates the tag itself, so a release never depends on whether the
+# person or session starting it may push `refs/tags/*`.
+#
+# A run with publish off is a full rehearsal -- every gate, every build,
+# artifacts left on the run, nothing published. Do that first.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit, branch or tag to release (blank = this branch)"
+        type: string
+        required: false
+        default: ""
+      tag:
+        description: "Tag name, e.g. v0.3.0. Required when publishing."
+        type: string
+        required: false
+        default: ""
+      publish:
+        description: "Publish. Leave off for a rehearsal."
+        type: boolean
+        required: false
+        default: false
+
+# Read at the top; the one job that publishes asks for write itself. A
+# called workflow cannot raise its own permissions, so that grant lives on
+# the calling job below.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    uses: ./.github/workflows/release-preflight.yml
+    with:
+      ref: ${{ inputs.ref }}
+      tag: ${{ inputs.tag }}
+      publish: ${{ inputs.publish || false }}
+
+  build:
+    name: Build
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build
+      - run: python -m build
+      # The tests run here too: a release must not be a way around them.
+      - run: pip install -e . pytest
+      - run: pytest -q tests/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-python
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: [preflight, build]
+    if: needs.preflight.outputs.publish == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release-publish.yml
+    with:
+      tag: ${{ needs.preflight.outputs.tag }}
+      sha: ${{ needs.preflight.outputs.sha }}
+      branch: ${{ needs.preflight.outputs.branch }}
+      version: ${{ needs.preflight.outputs.version }}
+      prerelease: ${{ needs.preflight.outputs.prerelease }}
+      name: technoproj ${{ needs.preflight.outputs.tag }}
+      artifacts: dist-*

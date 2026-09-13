@@ -26,6 +26,7 @@ that changes when nobody touched it.
 ```sh
 technoproj sync                      # place script/version.mk
 technoproj show                      # this repo's version, every spelling
+technoproj release doctor            # what this repo still needs
 technoproj-changelog validate        # schema + consistency
 technoproj-changelog generate        # write CHANGELOG.md and changelog.json
 ```
@@ -36,10 +37,57 @@ not of usage. In CI:
 
 ```sh
 technoproj check                     # version.mk has not drifted
+technoproj release check-workflow    # the release workflow still conforms
 technoproj-changelog check           # the generated files match the YAML
 technoproj-changelog consistency     # the tree agrees with the newest entry
 technoproj-changelog release-check --tag "$TAG" --publish
 ```
+
+## Releasing
+
+One process, in every repository:
+
+```sh
+technoproj release plan            # what a release of this tree would be
+technoproj release preflight       # every gate CI runs, run here first
+technoproj release doctor          # what is missing, and which route is open
+technoproj release cut --tag v0.3.0 --publish --yes
+```
+
+The halves of a release that were never meant to differ between projects are
+two reusable workflows here — the tag decision and the changelog gate, then
+`BUILDINFO.txt`, `SHA256SUMS.txt`, the notes and the release itself. A
+consuming repository's `release.yml` calls them and keeps only its build
+jobs:
+
+```yaml
+  preflight:
+    uses: Aloecraft-org/technoproj/.github/workflows/release-preflight.yml@v0.3.0
+  publish:
+    permissions:
+      contents: write        # the caller grants it; a called workflow cannot
+    uses: Aloecraft-org/technoproj/.github/workflows/release-publish.yml@v0.3.0
+```
+
+There is one pin to keep, not two: the shared workflows install the engine
+from the commit they were themselves read from, so the tool and the workflow
+cannot end up different versions.
+
+**The workflow creates the tag; nobody pushes one.** That is the whole of the
+permissions story. `contents: write` on one job is a permission the
+repository grants itself and can be read back from the file; the right to
+push `refs/tags/*` varies by person, by machine, by automation session and by
+tag ruleset, and no repository setting makes it uniform. `technoproj release
+doctor` says which route is open before anything is attempted.
+
+A repository declares what is its own in `TECHNO_RELEASE` -- the workflow's
+file name, the release title, the artifact pattern, the registry leg. Every
+field has a default; see `examples/release.json` for the three shapes the
+fleet has.
+
+[`doc/RELEASING.md`](doc/RELEASING.md) is the canonical process and is
+vendored byte-identical into each repository, like `ALIGNMENT.md`.
+[`doc/RELEASE-ADOPTION.md`](doc/RELEASE-ADOPTION.md) tracks where each one is.
 
 ### Why `version.mk` is copied rather than imported
 

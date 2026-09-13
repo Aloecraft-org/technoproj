@@ -33,5 +33,25 @@ jobs:
           technoproj-changelog validate
           technoproj-changelog consistency
           technoproj-changelog check
+      # The release contract checks itself. technoproj's own release.yml is
+      # the reference caller every other repository copies, so a change that
+      # breaks the contract must fail here rather than in the first
+      # repository that adopts it.
+      - name: the release workflow conforms
+        run: technoproj release check-workflow
+      - name: every release gate passes
+        run: technoproj release preflight
+      # The shared workflows are the deliverable; a syntax error in one is
+      # only discovered by a consuming repo's release otherwise.
+      - name: the reusable workflows parse
+        run: |
+          python -c "
+          import sys, yaml
+          for f in ('release-preflight', 'release-publish', 'release'):
+              p = '.github/workflows/%s.yml' % f
+              d = yaml.safe_load(open(p))
+              assert d.get('jobs'), p
+              print('ok', p)
+          "
       - name: the status board builds and stays self-contained
         run: ./status/build.sh --out /tmp/status-out
