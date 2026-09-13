@@ -18,9 +18,13 @@ technoproj/
 On a host, the collector arrives with the package:
 
 ```sh
-pip install git+https://github.com/Aloecraft-org/technoproj@v0.1.0
-technoproj-status-collect --profile internal --out /var/www/html/status/data
+pip install git+https://github.com/Aloecraft-org/technoproj@v0.2.0
+technoproj-status-collect --profile internal --out /var/www/status/data
 ```
+
+**Not `@v0.1.0`.** That tag predates the collector: the package installs and
+`technoproj.status` is not in it, which fails at the first collection rather
+than at install.
 
 **The collector imports only the standard library**, so `--no-deps` is always
 safe for it. PyYAML is technoproj's dependency for the changelog engine; a
@@ -59,9 +63,9 @@ same build unchecked since yesterday is not.
 ## Running it
 
 ```sh
-./status/build.sh --out /var/www/html/status          # the page
+./status/build.sh --out /var/www/status               # the page
 ./status/collect.py --profile internal \
-    --out /var/www/html/status/data                   # the data
+    --out /var/www/status/data                        # the data
 ```
 
 `collect.py` exits non-zero when any source degraded, so autoserv records it.
@@ -90,17 +94,53 @@ ansible-playbook ansible/ansible-dart2.yaml -i ./ansible/inventory \
     --limit aloecraft-dart2 --tags install_status -b
 ```
 
-### Internal-only, and the one carve-out that matters
+### Internal-only, and the two things that took to get right
 
 dart2's nginx is **public on 443** — glance and reportserv are restricted by
 firewall because they sit on high ports, but a vhost cannot be. So access is
-an nginx drop-in at `/etc/nginx/site-extra/status.aloecraft.org/access.conf`
-allowing `192.168.2.0/24`, the DMZ subnet, and denying everything else.
+`allow 192.168.2.0/24; deny all;` written **into the vhost itself**, at
+`/etc/nginx/http.d/status.aloecraft.org.conf`.
+
+Not a `site-extra/` drop-in. dart2 includes no such directory — that is
+cloud1's arrangement — so the first version of this was a policy file nginx
+never read, and `nginx -t` passed. dart2's own drop-in point is
+`snippets/<fqdn>.d/`, and it belongs to the node's vhost, not this one.
 
 **It must leave `/.well-known/acme-challenge/` open.** dart2 issues
 certificates with `certbot --webroot`, so denying that path passes the first
 issuance and fails the first *renewal* — ninety days later, when nobody is
 looking at this.
+
+**The root is `/var/www/status`, not `/var/www/status`.** That tree is
+the root of this node's `:80` default server *and* of its own
+`dart2.aloecraft.org` vhost, neither of which has access control — so a board
+under it is served to anyone by IP or by the wrong `Host`, and the allow/deny
+above never runs. The access rule and the document root are one decision.
+
+### Reaching it is not the same as serving it
+
+The name is **Cloudflare-proxied**, so a request through it arrives at nginx
+from a Cloudflare address and is denied. That 403 is the rule working.
+
+A DMZ client resolves the name to the tunnel address instead:
+
+```
+192.168.2.17  status.aloecraft.org      # /etc/hosts
+```
+
+The certificate still validates — that changes the connect address, not the
+name. Check one without editing anything:
+
+```sh
+curl -sS -o /dev/null -w '%{http_code}\n' \
+     --resolve status.aloecraft.org:443:192.168.2.17 \
+     https://status.aloecraft.org/
+```
+
+403 has two causes here, and nginx's error log separates them because access
+is evaluated before the index lookup: `access forbidden by rule` is the
+client's address, `directory index ... is forbidden` is an empty root — the
+page has not been deployed.
 
 This is the fleet's first internal-only vhost; nothing else establishes the
 pattern.
@@ -124,7 +164,11 @@ Any node with a normal Python can use the plain form above.
 ### The token
 
 `GITHUB_TOKEN` lives at `/etc/status/github_token`, mode 0600, owned by the
-user autoserv runs as. Without it the collector still runs and still writes a
+user autoserv runs as. Mint a **classic token with no scopes ticked**: every
+repository it reads is public, which needs none, and what authentication buys
+here is the rate limit — 5000 requests an hour against 60 — not access.
+`public_repo` is not the read-only scope its name suggests; it grants write
+to every public repository the account can reach. Without it the collector still runs and still writes a
 complete `status.json` — builds and activity are skipped and the page says
 so, because unauthenticated GitHub allows 60 requests an hour and this would
 exhaust that on one run across seven repositories. Release data needs no

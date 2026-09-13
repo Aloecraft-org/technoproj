@@ -15,7 +15,7 @@ fact table, not logic**. That is what makes one engine possible.
 ## Install
 
 ```sh
-pip install git+https://github.com/Aloecraft-org/technoproj@v0.1.0
+pip install git+https://github.com/Aloecraft-org/technoproj@v0.2.0
 ```
 
 Always pin a tag. A release pipeline that tracks `main` is a release pipeline
