@@ -30,7 +30,7 @@ exactly the failure that looks like "odd permissions issues" and is not
 fixed by any repository setting. `doctor` says which of the two routes is
 open before anything is attempted, rather than after a 403.
 
-See doc/RELEASING.md for the process this implements.
+See doc/STANDARD.md for the standard this implements.
 """
 import json
 import os
@@ -216,7 +216,7 @@ def plan(proj, args):
     reg = cfg.get("registry")
     print("  registry leg     %s"
           % ("%s, from .github/workflows/%s (stays in this repo -- see "
-             "doc/RELEASING.md)" % (reg["kind"], reg["workflow"])
+             "doc/STANDARD.md)" % (reg["kind"], reg["workflow"])
              if reg else "none"))
     print()
 
@@ -359,7 +359,7 @@ def check_workflow(proj, quiet=False):
     path = workflow_path(cfg)
     text = _read(path)
     if text is None:
-        return ["%s does not exist. See doc/RELEASING.md for the caller to "
+        return ["%s does not exist. See doc/STANDARD.md for the caller to "
                 "copy; `technoproj release doctor` lists what else is "
                 "missing." % path]
     try:

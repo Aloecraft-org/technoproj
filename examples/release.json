@@ -1,7 +1,7 @@
 {
   "_": [
     "TECHNO_RELEASE blocks, for the three shapes the fleet actually has.",
-    "Every field has a default (see doc/RELEASING.md), so most repositories",
+    "Every field has a default (see doc/STANDARD.md), so most repositories",
     "declare two or three lines. This file is documentation: the examples",
     "are keyed by repository and a real .technoproj carries one of them",
     "inline under `TECHNO_RELEASE`."

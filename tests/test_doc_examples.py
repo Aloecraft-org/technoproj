@@ -93,6 +93,30 @@ def test_the_documented_caller_builds_from_preflights_sha(documented_repo):
     assert "needs.preflight.outputs.sha" in caller
 
 
+def test_every_internal_link_resolves():
+    # The document is now the only one a project is pointed at, so it
+    # carries its own navigation. A cross-part link that 404s inside the
+    # page is the kind of rot nobody notices from a diff.
+    text = DOC.read_text()
+
+    def slug(heading):
+        s = re.sub(r"[^\w\s-]", "", heading.strip().lower())
+        return re.sub(r"\s", "-", s)
+
+    anchors = {slug(m.group(1))
+               for m in re.finditer(r"^#{1,6}\s+(.*)$", text, re.M)}
+    broken = [l for l in re.findall(r"\]\(#([^)]+)\)", text)
+              if l not in anchors]
+    assert not broken, "dangling internal links: %s" % broken
+
+
+def test_no_reference_to_the_folded_runbook():
+    # RELEASING.md was folded into this document; a link to it would send a
+    # project to a file that no longer exists.
+    assert not (DOC.parent / "RELEASING.md").exists()
+    assert "RELEASING.md" not in DOC.read_text()
+
+
 def test_the_pinned_version_matches_this_package(documented_repo):
     # Every `@vX.Y.Z` the doc tells a project to pin must be the version
     # being released here, or the guidance points at the previous one.

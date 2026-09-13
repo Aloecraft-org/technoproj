@@ -92,10 +92,10 @@ fleet has.
 **[`doc/STANDARD.md`](doc/STANDARD.md) is the document to point a project
 at** — the changelog schema and the release actions, with every example in it
 verified against the engine by `tests/test_doc_examples.py` rather than
-asserted. [`doc/RELEASING.md`](doc/RELEASING.md) is the runbook for cutting a
-release once a project is set up, and
+asserted. It carries the whole of it: the changelog schema, the release
+action, how to cut one, and the adoption checklist.
 [`doc/RELEASE-ADOPTION.md`](doc/RELEASE-ADOPTION.md) tracks where each
-repository stands. All are vendored byte-identical, like `ALIGNMENT.md`.
+repository stands. Both are vendored byte-identical, like `ALIGNMENT.md`.
 
 ### Why `version.mk` is copied rather than imported
 

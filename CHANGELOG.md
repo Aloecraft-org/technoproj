@@ -59,9 +59,10 @@ different commit than the one being built.
   `check-workflow`, and the version it tells a project to pin is
   checked against this package's own. Documentation is checked rather
   than trusted, for the same reason `version.mk` is.
-- `doc/RELEASING.md`, the runbook for cutting a release. A repository
-  vendors both byte-identical, like `ALIGNMENT.md`, so "how do I
-  release this" has one answer everywhere.
+  It carries the whole of it -- the changelog schema, the release
+  action, how to cut one, and the adoption checklist -- and is
+  vendored byte-identical, like `ALIGNMENT.md`, so "how do I release
+  this project" has one answer everywhere.
 
 ### Changed
 
