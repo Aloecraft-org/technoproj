@@ -36,9 +36,21 @@ Its tags are also `v5.5.1_buildN`, which is not the scheme in `ALIGNMENT.md`
 `xtrshow`, `aloeschema` and `aloecrypt_js` publish to PyPI or npm from
 `publish.yml` and produce no GitHub release. The registry leg is fine where
 it is and **must stay there** — trusted publishing matches the OIDC claim
-against a workflow filename in the publishing repository, so renaming that
-file or moving the upload into a shared workflow breaks it, confusingly.
-Adding a conforming `release.yml` beside it is the whole change.
+against a workflow filename in the publishing repository, so moving the
+upload into a shared workflow breaks it, and renaming the file means
+re-registering the publisher first.
+
+**Adding a `release.yml` beside it is not the whole change**, which is what
+this said before [#6](https://github.com/Aloecraft-org/technoproj/issues/6).
+All three trigger that leg on a tag push, and the tag a release creates is
+made by `GITHUB_TOKEN`, which starts no workflow run. Adopting without the
+hand-off switches publishing off silently. Each needs `workflow_dispatch`
+with a `tag` input added to `publish.yml`, `registry-workflow` passed from
+the publish job, and `actions: write` on it — `check-workflow` fails until
+all three are there. None of the three has a usable manual fallback today
+either: `xtrshow` and `aloecrypt_js` have no `workflow_dispatch` at all, and
+`aloeschema`'s takes no inputs, so it can only build whatever the default
+branch is at.
 
 `aloecrypt_js` has no `CHANGELOG.yaml`, so its release notes would be a tag
 name. The release gate is off without one and `doctor` says so, rather than

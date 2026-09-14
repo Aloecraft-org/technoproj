@@ -312,6 +312,10 @@ def preflight(proj, args):
     gate("the release workflow conforms",
          lambda: check_workflow(proj, quiet=True))
 
+    if _exists(".github", "workflows", "release-preflight.yml"):
+        gate("doc/STANDARD.md pins the version being released",
+             lambda: doc_pins(tag))
+
     width = max(len(n) for n, _ in checks)
     for name, bad in checks:
         mark = "ok  " if not bad else ("--  " if "skipped" in " ".join(bad)
@@ -344,6 +348,34 @@ def _version_mk_ok():
     if rc == 0:
         return []
     return ["run `technoproj sync` and commit the result"]
+
+
+def doc_pins(tag):
+    """In the repository that DEFINES the standard, the document tells every
+    project which technoproj to pin -- `pip install ...@vX.Y.Z` and two
+    `uses: ...@vX.Y.Z`. Those must name the release the document ships in.
+
+    Pinned at a tag that does not exist, the install fails outright and a
+    workflow fails at run time with something worse; pinned at an older one,
+    every project that follows the document adopts the wrong version. Neither
+    is visible from reading the file, so it is gated at the one moment it can
+    be settled: publishing.
+    """
+    text = _read("doc", "STANDARD.md")
+    if text is None:
+        return []
+    pins = set(re.findall(r"technoproj(?:/\.github/workflows/\S+?)?@(v[\d.]+)",
+                          text))
+    if not pins:
+        return ["doc/STANDARD.md pins no technoproj version; it should tell a "
+                "project which one to install"]
+    wrong = sorted(pins - {tag})
+    if wrong:
+        return ["doc/STANDARD.md pins %s but this release is %s -- every "
+                "project following the document would install the wrong "
+                "version, or one that does not exist yet"
+                % (", ".join(wrong), tag)]
+    return []
 
 
 def _stale(cl, doc):
@@ -452,14 +484,67 @@ def check_workflow(proj, quiet=False):
                        "them, and this is the single most common reason a "
                        "release run dies at the upload." % path)
 
-    reg = cfg.get("registry")
-    if reg:
-        rpath = os.path.join(".github", "workflows", reg["workflow"])
-        if not _exists(rpath):
-            bad.append("%s: declared as the %s leg, but the file does not "
-                       "exist" % (rpath, reg["kind"]))
+    bad.extend(registry_handoff(cfg, pub, path))
     bad.extend(t for t in permission_traps()
                if t.startswith(".github/workflows/%s:" % cfg["workflow"]))
+    return bad
+
+
+def registry_handoff(cfg, pub_jobs, path):
+    """The registry leg must be handed the tag, not left waiting for a push.
+
+    The publish workflow creates the tag with GITHUB_TOKEN, and GitHub starts
+    no workflow run from an event that token created -- the recursion guard.
+    So a PyPI or npm workflow triggered `on: push: tags:` never fires once a
+    repository adopts this, and nothing says so: the release is published,
+    the assets are there, and only the registry still serving the previous
+    version gives it away.
+
+    `workflow_dispatch` is the documented exception, so the shared publish
+    job dispatches the registry workflow explicitly. This refuses the shapes
+    where that would not happen -- the combination is a silent failure, so it
+    is a hard error rather than an advisory.
+    """
+    import yaml
+    reg = cfg.get("registry")
+    if not reg:
+        return []
+    bad = []
+    rpath = os.path.join(".github", "workflows", reg["workflow"])
+    if not _exists(rpath):
+        return ["%s: declared as the %s leg, but the file does not exist"
+                % (rpath, reg["kind"])]
+
+    for j in pub_jobs:
+        with_ = j.get("with") or {}
+        if not str(with_.get("registry-workflow") or "").strip():
+            bad.append(
+                "%s: this repository declares a %s leg, so the publish job "
+                "must pass `registry-workflow: %s`. Without it the tag is "
+                "created by GITHUB_TOKEN, no push event fires, and %s never "
+                "runs -- the release publishes and nothing reaches %s, with "
+                "no failed run to notice."
+                % (path, reg["kind"], reg["workflow"], reg["workflow"],
+                   reg["kind"]))
+        if (j.get("permissions") or {}).get("actions") != "write":
+            bad.append(
+                "%s: the publish job needs `actions: write` beside "
+                "`contents: write` to dispatch %s. A called workflow cannot "
+                "raise its own permissions." % (path, reg["workflow"]))
+
+    try:
+        rwf = yaml.safe_load(_read(rpath)) or {}
+    except yaml.YAMLError as e:
+        return bad + ["%s is not valid YAML (%s)" % (rpath, e)]
+    on = rwf.get("on", rwf.get(True)) or {}
+    disp = on.get("workflow_dispatch")
+    inputs = (disp or {}).get("inputs") or {}
+    if disp is None or "tag" not in inputs:
+        bad.append(
+            "%s: must declare `workflow_dispatch` with a `tag` input, so the "
+            "release can hand it the tag it just created. Its `on: push: "
+            "tags:` trigger keeps working for a tag pushed by a person, and "
+            "never fires for one the release workflow makes." % rpath)
     return bad
 
 

@@ -28,6 +28,23 @@ name: release-publish
 # `v*` tag. Pushing tags needs a permission that differs per person and per
 # automation session; `contents: write` on this one job is a permission the
 # repository grants itself and can be read back.
+#
+# THE CONSEQUENCE, which is not optional to handle. GitHub does not start
+# workflow runs from events created by GITHUB_TOKEN -- the recursion guard,
+# which cannot be turned off. So the tag this job creates fires NO
+# `on: push: tags:` workflow. A repository whose PyPI or npm upload triggers
+# on a tag push therefore stops publishing the moment it adopts this, with
+# no failed run to notice: the release appears, the assets upload, and only
+# `pip install` returning the previous version says anything is wrong.
+#
+# `workflow_dispatch` is the documented exception to that guard, so this job
+# hands the tag to the registry workflow explicitly. aloelite's nightly.yml
+# already reaches the same conclusion for the same reason.
+#
+# Pass `registry-workflow: publish.yml` and grant the calling job
+# `actions: write` beside its `contents: write`. `technoproj release
+# check-workflow` fails when a repository declares a registry leg and does
+# not do this.
 
 on:
   workflow_call:
@@ -62,6 +79,15 @@ on:
         type: string
         required: false
         default: "dist-*"
+      registry-workflow:
+        description: >-
+          The PyPI/npm workflow in the CALLING repository to hand this tag to,
+          e.g. publish.yml. Required for any repository whose registry leg
+          currently triggers on a tag push -- see the comment below. Empty
+          means this repository publishes to no registry.
+        type: string
+        required: false
+        default: ""
 
 jobs:
   publish:
@@ -128,6 +154,30 @@ jobs:
           files: release_dist/*
           prerelease: ${{ inputs.prerelease == 'true' }}
           fail_on_unmatched_files: true
+
+      # The tag above was created by GITHUB_TOKEN and so triggers nothing.
+      # This is the hand-off that a `v*` push would have been. It is loud on
+      # failure by design: a silent one here is exactly the bug.
+      - name: Hand the tag to the registry workflow
+        if: inputs.registry-workflow != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REGISTRY_WF: ${{ inputs.registry-workflow }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          # Dispatched against the default branch: that is where GitHub reads
+          # the workflow file from, and where an already-registered trusted
+          # publisher expects it. The tag being built travels as an input.
+          BRANCH=$(gh api "repos/$REPO" --jq .default_branch)
+          if ! gh api --method POST \
+                 "repos/$REPO/actions/workflows/$REGISTRY_WF/dispatches" \
+                 -f "ref=$BRANCH" -f "inputs[tag]=$TAG"; then
+            echo "::error::could not dispatch $REGISTRY_WF for $TAG. The release is published, but nothing reached the registry. Check that $REGISTRY_WF exists on $BRANCH, declares workflow_dispatch with a 'tag' input, and that this job has 'actions: write'."
+            exit 1
+          fi
+          echo "::notice::dispatched $REGISTRY_WF for $TAG on $BRANCH"
 
       - name: Summary
         env:

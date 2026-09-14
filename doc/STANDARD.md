@@ -322,6 +322,7 @@ jobs:
     if: needs.preflight.outputs.publish == 'true'
     permissions:
       contents: write        # the caller grants this; a called workflow cannot
+      # + `actions: write` if this repository has a registry leg -- see below
     uses: Aloecraft-org/technoproj/.github/workflows/release-publish.yml@v0.3.0
     with:
       tag:        ${{ needs.preflight.outputs.tag }}
@@ -368,7 +369,7 @@ What the workflow above does not say for itself:
 | `artifacts` | `download-artifact` pattern the publish leg merges | `dist-*` |
 | `changelog_gate` | run the changelog gates | on when `CHANGELOG.yaml` exists |
 | `dev_builds` | `-dev.<n>` tags take the fast path | `false` |
-| `registry` | the PyPI/npm leg, which stays in this repo — see below | none |
+| `registry` | the PyPI/npm leg: stays in this repo, and is handed the tag rather than left waiting for a push — see below | none |
 
 Every field has a default, so most repositories declare two or three lines.
 `examples/release.json` has the three shapes the fleet actually has.
@@ -437,21 +438,57 @@ step added to it fails with a 403 that reads like an organisation policy
 problem and is not one. Write `contents: read` beside it. `doctor` lists
 every job in the repository sitting on this.
 
-### The registry leg stays in your repository
+### The registry leg stays in your repository, and must be handed the tag
 
 PyPI's trusted publishing matches the OIDC claim against **a workflow
-filename in the publishing repository**. So:
+filename in the publishing repository**. So the upload step cannot move into
+a shared workflow owned by technoproj. The name is yours — technoproj reads
+it from your declaration and no file has to be called anything in
+particular — but **whatever you have already registered with PyPI is the
+name PyPI will accept**, so renaming it means re-registering the publisher
+first, and it fails confusingly if you do not.
 
-- the upload step **cannot** move into a shared workflow, and
-- `publish.yml` **cannot be renamed** without re-registering the publisher
-  first — and it fails confusingly if you do.
+**This is the part that bites.** The publish job creates the tag with
+`GITHUB_TOKEN`, and GitHub starts no workflow run from an event that token
+created — the recursion guard, which cannot be turned off. So a registry
+workflow triggered `on: push: tags:` **never fires** once you adopt this.
+Nothing announces it: the release is published, the notes render, the assets
+upload, and the only symptom is the registry still serving the previous
+version.
 
-The standard leaves that leg where it is and checks its shape instead.
-Declare it so `doctor` knows the separate file is deliberate:
+`workflow_dispatch` is the documented exception to that guard, so the
+release hands the tag over explicitly. Three things together, and
+`check-workflow` fails if any is missing:
 
 ```json
 "TECHNO_RELEASE": {"registry": {"kind": "pypi", "workflow": "publish.yml"}}
 ```
+
+```yaml
+  publish:
+    permissions:
+      contents: write
+      actions: write                      # to dispatch the registry workflow
+    uses: Aloecraft-org/technoproj/.github/workflows/release-publish.yml@v0.3.0
+    with:
+      # ...as above...
+      registry-workflow: publish.yml
+```
+
+```yaml
+# .github/workflows/publish.yml — your existing file, one addition
+on:
+  push:
+    tags: ["v*"]                          # still right for a hand-pushed tag
+  workflow_dispatch:
+    inputs:
+      tag:                                # what the release hands it
+        type: string
+        required: true
+```
+
+Then build from that input rather than from `github.ref` when it is set,
+since a dispatched run is not on the tag.
 
 ## What to run in CI
 
