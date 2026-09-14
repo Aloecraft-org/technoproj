@@ -105,10 +105,22 @@ jobs:
       # by construction: a caller pins `@v0.3.0` once and cannot end up
       # running v0.3.0's workflow against some other release's engine, which
       # is the drift a second pin would reintroduce.
+      #
+      # It is EMPTY when the caller reaches this file by local path
+      # (`uses: ./.github/workflows/release-preflight.yml`), which is how
+      # technoproj calls its own -- GitHub populates it only for a reusable
+      # workflow from another repository. `github.sha` is the right answer
+      # in exactly that case: the workflow and the engine are then the same
+      # commit of the same repository anyway. Without the fallback the
+      # install line is `...@` with nothing after it, which pip rejects.
       - name: Install technoproj
         run: |
           set -eu
-          PIN='${{ inputs.technoproj || github.job_workflow_sha }}'
+          PIN='${{ inputs.technoproj || github.job_workflow_sha || github.sha }}'
+          if [ -z "$PIN" ]; then
+            echo "::error::no commit to install technoproj from: neither the technoproj input, job_workflow_sha nor github.sha is set."
+            exit 1
+          fi
           pip install --quiet "git+https://github.com/Aloecraft-org/technoproj@${PIN}"
           echo "technoproj $(technoproj version) from ${PIN}"
 
