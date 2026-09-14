@@ -19,6 +19,10 @@ name: Release
 
 on:
   push:
+    # A merge here cuts a `-dev.<n>` build: a prerelease on the releases
+    # page, never mirrored, pruned once newer ones exist. Nobody tags
+    # anything for it -- see release-preflight.yml.
+    branches: ["main"]
     tags: ["v*"]
   workflow_dispatch:
     inputs:
@@ -92,3 +96,4 @@ jobs:
       prerelease: ${{ needs.preflight.outputs.prerelease }}
       name: technoproj ${{ needs.preflight.outputs.tag }}
       artifacts: dist-*
+      keep-dev: 5

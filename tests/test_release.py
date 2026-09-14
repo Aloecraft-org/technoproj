@@ -307,6 +307,86 @@ def test_a_repo_with_no_registry_leg_needs_no_handoff(repo):
 
 
 # ---------------------------------------------------------------------------
+# dev builds: merging is the trigger
+# ---------------------------------------------------------------------------
+
+def enable_dev(repo):
+    p = os.path.join(repo, ".technoproj")
+    proj = json.loads(open(p).read())
+    proj.setdefault("TECHNO_RELEASE", {})["dev_builds"] = True
+    open(p, "w").write(json.dumps(proj, indent=2))
+
+
+def git(repo, *args):
+    return subprocess.run(("git", "-C", repo) + args,
+                          capture_output=True, text=True)
+
+
+@pytest.fixture
+def git_repo(repo):
+    """The fixture, as a real repository with tags to allocate against."""
+    git(repo, "init", "-q", ".")
+    git(repo, "config", "user.email", "t@example.com")
+    git(repo, "config", "user.name", "t")
+    git(repo, "commit", "-q", "--allow-empty", "-m", "x")
+    return repo
+
+
+def test_dev_tag_is_refused_where_it_is_not_declared(git_repo):
+    r = cli("release", "dev-tag", root=git_repo)
+    assert r.returncode == 1
+    assert "not opted into dev builds" in r.stderr
+
+
+def test_dev_tag_starts_at_one(git_repo):
+    enable_dev(git_repo)
+    r = cli("release", "dev-tag", root=git_repo)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == "v0.2.0-dev.1"
+
+
+def test_the_dev_number_is_global_and_sorts_numerically(git_repo):
+    # The bug ALIGNMENT §1 exists to prevent: `dev.104` must not sort below
+    # `dev.2`. And the number carries across versions -- it is allocated
+    # from the tags that exist, not from this version's own.
+    enable_dev(git_repo)
+    for t in ("v0.1.0-dev.2", "v0.1.0-dev.9", "v0.1.0-dev.104"):
+        git(git_repo, "tag", t)
+    assert cli("release", "dev-tag", root=git_repo).stdout.strip() \
+        == "v0.2.0-dev.105"
+
+
+def test_if_changed_declines_to_cut_the_same_commit_twice(git_repo):
+    enable_dev(git_repo)
+    git(git_repo, "tag", "v0.2.0-dev.7")          # points at HEAD
+    r = cli("release", "dev-tag", "--if-changed", root=git_repo)
+    assert r.returncode == 3
+    assert r.stdout.strip() == ""
+    assert "already names HEAD" in r.stderr
+    # ...but moving HEAD frees it again.
+    git(git_repo, "commit", "-q", "--allow-empty", "-m", "y")
+    r = cli("release", "dev-tag", "--if-changed", root=git_repo)
+    assert r.returncode == 0
+    assert r.stdout.strip() == "v0.2.0-dev.8"
+
+
+def test_declared_dev_builds_with_nothing_to_trigger_them_is_refused(repo):
+    # The issue #6 shape again: declared, never fires, nothing says so.
+    enable_dev(repo)
+    r = cli("release", "check-workflow", root=repo)
+    assert r.returncode == 1
+    assert "on.push.branches" in r.stderr
+
+
+def test_declared_dev_builds_with_a_branch_trigger_conforms(repo):
+    enable_dev(repo)
+    edit(repo, '  push:\n    tags: ["v*"]\n',
+         '  push:\n    branches: ["main"]\n    tags: ["v*"]\n')
+    r = cli("release", "check-workflow", root=repo)
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+# ---------------------------------------------------------------------------
 # the permission trap
 # ---------------------------------------------------------------------------
 

@@ -97,6 +97,30 @@ different commit than the one being built.
   tells every project which version to install, and a pin at a tag
   that does not exist fails the install outright -- which is what it
   was doing, and nothing in the tree could see it.
+- A merge to the default branch cuts a `-dev.<n>` build, where a
+  repository declares `dev_builds`. This is the part that takes people
+  out of the loop: the four release commands each need something from
+  whoever runs them -- a session scoped to that repository,
+  `actions: write`, the right to push `refs/tags/*` -- and which of
+  those you have is invisible until it fails. A merge needs none of
+  them. The run is already going, so there is no ref for anyone to
+  push and no dispatch to be refused, and the tag is created at the end
+  by the publish leg with the `contents: write` the repository grants
+  itself.
+
+  Safe on every merge because of what a dev build is: no changelog
+  entry ever, so no mirror can carry it; always a prerelease; and
+  pruned by `keep-dev` once newer ones exist, their tags kept so a
+  number names one build forever. Only the default branch cuts one, so
+  a caller that watches `**` to self-test still publishes nothing from
+  a feature branch. The real release is unchanged and still deliberate.
+- `technoproj release dev-tag`, the allocation that was `make dev-tag`
+  in the shared version.mk and 36 lines of `script/dev-tag.sh` in
+  diluvium-drt. Verified identical to both on drt's real tags and on
+  the `dev.104` case the dot in `-dev.N` exists to get right. The make
+  target stays, because `make` must work with no virtualenv.
+- Pruning superseded dev releases moved into the shared publish leg
+  from aloelite's nightly, as `keep-dev`.
 
 ### Known issues
 

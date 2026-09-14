@@ -23,7 +23,8 @@
   "TECHNO_RELEASE": {
     "workflow": "release.yml",
     "name": "technoproj {tag}",
-    "artifacts": "dist-*"
+    "artifacts": "dist-*",
+    "dev_builds": true
   },
   "TECHNO_INIT_DIRS": [
     ".nogit",

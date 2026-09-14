@@ -24,6 +24,21 @@ name: release-preflight
 # Outputs are the release contract. `technoproj-changelog release-check`
 # prints version=, prerelease= and dev= and this passes them straight
 # through, so the changelog stays the single source of what a release is.
+#
+# THREE WAYS IN, and the first is the one that removes people from the loop:
+#
+#   a merge to the default branch   cuts a `-dev.<n>` build, where the
+#                                   repository declares dev_builds. No tag is
+#                                   pushed and nothing is dispatched, so it
+#                                   needs no permission anyone has to be
+#                                   granted -- the run is already going.
+#   a `v*` tag push                 the real release
+#   a dispatch                      the real release, from a browser or from
+#                                   `technoproj release cut`
+#
+# A dev build is never mirrored and never stable: it has no changelog entry
+# and never will, so `mirror-tags` cannot list it and `prerelease` is always
+# true. That is what makes cutting one on every merge safe.
 
 on:
   workflow_call:
@@ -105,6 +120,7 @@ jobs:
           IN_TAG: ${{ inputs.tag }}
           IN_PUBLISH: ${{ inputs.publish }}
           CALLER_REF: ${{ github.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -eu
           TAG="$IN_TAG"
@@ -114,6 +130,27 @@ jobs:
               # A tag push always publishes: that is what pushing one means.
               TAG="${CALLER_REF#refs/tags/}"
               PUBLISH=true
+              ;;
+            push:refs/heads/*)
+              # A merge to the DEFAULT BRANCH cuts a dev build, where the
+              # repository declares them (doc/ALIGNMENT.md §7). Any other
+              # branch stays a rehearsal -- a caller that watches `**` to
+              # self-test its pipeline must not publish from a feature
+              # branch.
+              #
+              # This is the whole point of the branch trigger: nobody tags
+              # anything. The run is already going, so there is no ref for
+              # GITHUB_TOKEN to push and no recursion guard to work around,
+              # and the tag is created at the end by the publish leg. A
+              # session that can open a pull request can therefore ship a
+              # build, which is the one thing every session can reliably do.
+              if [ "${CALLER_REF#refs/heads/}" = "${DEFAULT_BRANCH:-}" ]; then
+                if DEV=$(technoproj release dev-tag --if-changed); then
+                  TAG="$DEV"
+                  PUBLISH=true
+                  echo "::notice::merge to $DEFAULT_BRANCH -- cutting dev build $TAG"
+                fi
+              fi
               ;;
           esac
           SHA=$(git rev-parse HEAD)

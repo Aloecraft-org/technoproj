@@ -79,6 +79,13 @@ on:
         type: string
         required: false
         default: "dist-*"
+      keep-dev:
+        description: >-
+          How many `-dev.<n>` RELEASES survive. Their TAGS are never deleted,
+          so a number names one build forever. 0 prunes nothing.
+        type: number
+        required: false
+        default: 5
       registry-workflow:
         description: >-
           The PyPI/npm workflow in the CALLING repository to hand this tag to,
@@ -178,6 +185,29 @@ jobs:
             exit 1
           fi
           echo "::notice::dispatched $REGISTRY_WF for $TAG on $BRANCH"
+
+      # Dev builds are cut on every merge, so without this the releases page
+      # becomes a list of them. The TAGS are kept: pruning a release and
+      # keeping its tag is what lets the counter never reuse a number, so a
+      # dev number names exactly one build forever (doc/ALIGNMENT.md §7).
+      - name: Prune superseded dev releases
+        if: inputs.keep-dev > 0
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP: ${{ inputs.keep-dev }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          OLD=$(gh release list --repo "$REPO" --limit 100                   --json tagName --jq '.[].tagName'                 | grep -- '-dev\.' | tail -n +"$((KEEP + 1))" || true)
+          if [ -z "$OLD" ]; then
+            echo "nothing to prune (keeping $KEEP)"
+            exit 0
+          fi
+          echo "$OLD" | while read -r t; do
+            [ -n "$t" ] || continue
+            echo "pruning release $t (its tag stays)"
+            gh release delete "$t" --repo "$REPO" --yes
+          done
 
       - name: Summary
         env:

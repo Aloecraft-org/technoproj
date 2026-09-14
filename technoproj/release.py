@@ -259,6 +259,70 @@ def plan(proj, args):
 
 
 # ---------------------------------------------------------------------------
+# dev-tag -- the number a dev build takes next
+# ---------------------------------------------------------------------------
+
+def dev_tag(proj, args):
+    """`v<X.Y.Z>-dev.<n>`, where n is one more than the highest any tag in
+    this repository has ever carried.
+
+    Allocated from the tags that exist rather than from a counter in the
+    tree, so a build needs no commit, two branches cannot collide, and a
+    number names exactly one build forever -- `nightly.yml` prunes old dev
+    *releases* and leaves their tags. The counter is global across versions:
+    `0.4.0-dev.104` then `0.5.0-dev.105`.
+
+    This existed twice before it existed here: `make dev-tag` in the shared
+    version.mk, and 36 lines of `script/dev-tag.sh` in diluvium-drt. The
+    make target stays -- `make` must work with no virtualenv -- and
+    `tests/test_version.py` already holds the two spellings to each other.
+    A repository with no Makefile has this instead.
+    """
+    cfg = config(proj)
+    if not cfg["dev_builds"] and not args.force:
+        raise ReleaseError(
+            "this repository has not opted into dev builds; declare "
+            '"dev_builds": true in TECHNO_RELEASE (or pass --force to see '
+            "the tag anyway)")
+    v = _version.of(proj)
+    base = v["base"]
+
+    tags = _git("tag", "--list", "v*-dev.*").split()
+    highest = 0
+    for t in tags:
+        m = DEV_N.match(t)
+        if m and int(m.group(1)) > highest:
+            highest = int(m.group(1))
+    tag = "v%s-dev.%d" % (base, highest + 1)
+
+    if args.if_changed and tags:
+        # Do not cut the same commit twice: a scheduled or per-merge build
+        # that fires with nothing new produces a second tag naming one build.
+        newest = max(tags, key=lambda t: int(DEV_N.match(t).group(1))
+                     if DEV_N.match(t) else -1)
+        head = _git("rev-parse", "HEAD")
+        at = _git("rev-parse", "%s^{commit}" % newest)
+        if head and at and head == at:
+            print("%s already names HEAD -- nothing new to build"
+                  % newest, file=sys.stderr)
+            return 3
+    print(tag)
+    return 0
+
+
+DEV_N = re.compile(r"^v\d+\.\d+\.\d+-dev\.(\d+)$")
+
+
+def _git(*args):
+    import subprocess
+    try:
+        return subprocess.run(("git",) + args, cwd=root(), capture_output=True,
+                              text=True, check=False).stdout.strip()
+    except OSError:
+        return ""
+
+
+# ---------------------------------------------------------------------------
 # preflight -- every gate CI runs, run locally first
 # ---------------------------------------------------------------------------
 
@@ -483,6 +547,15 @@ def check_workflow(proj, quiet=False):
                        "cannot raise its own permissions -- the caller grants "
                        "them, and this is the single most common reason a "
                        "release run dies at the upload." % path)
+
+    if cfg["dev_builds"]:
+        branches = ((on.get("push") or {}).get("branches")) or []
+        if not branches:
+            bad.append(
+                "%s: this repository declares `dev_builds`, but nothing "
+                "triggers one -- add the default branch to `on.push.branches` "
+                "so a merge cuts the build. Declared and untriggered, dev "
+                "builds simply never happen, and nothing says so." % path)
 
     bad.extend(registry_handoff(cfg, pub, path))
     bad.extend(t for t in permission_traps()
@@ -826,6 +899,8 @@ def cut(proj, args):
 # ---------------------------------------------------------------------------
 
 def main(proj, args):
+    if args.release_command == "dev-tag":
+        return dev_tag(proj, args)
     if args.release_command == "plan":
         return plan(proj, args)
     if args.release_command == "preflight":
