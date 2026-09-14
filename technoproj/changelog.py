@@ -29,8 +29,11 @@ Usage:
                                      newest entry; for CI
   technoproj-changelog release-check --tag TAG [--publish]
                                      fail unless TAG is releasable; prints
-                                     prerelease= and version= for
+                                     prerelease=, version= and dev= for
                                      GITHUB_OUTPUT
+  technoproj-changelog buildinfo --tag TAG
+                                     the entry's compatibility facts as
+                                     `key: value` lines, for BUILDINFO.txt
 
 Why the generated files are committed: the release mirror runs on a host
 with a stdlib-only Python and no build step, so it reads changelog.json
@@ -73,6 +76,12 @@ CORE_SCALARS = {"version", "tag", "date", "status", "stable", "latest",
                 "mirror", "summary", "upgrading"}
 
 KAC = "The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).\n"
+
+# A dev build has no entry of its own and never will (doc/ALIGNMENT.md §7):
+# it is one commit of the newest entry's version, cut without a changelog
+# edit. So `release-check` resolves it against that entry rather than
+# refusing it, and every other spelling of a tag goes through find_tag.
+DEV_TAG = re.compile(r"^v(\d+\.\d+\.\d+)-dev\.(\d+)$")
 
 
 # ---------------------------------------------------------------------------
@@ -176,6 +185,60 @@ def find_tag(doc, tag):
             if isinstance(c, dict) and "v%s" % c.get("version") == tag:
                 return r, c
     return None, None
+
+
+def dev_entry(doc, tag):
+    """The entry a `-dev.<n>` tag builds, or None when the tag is not one.
+    -> (release, version), or ("mismatch", why). The newest entry must
+    carry the same X.Y.Z: a dev build of a version the changelog has not
+    reached yet is a mis-stamped tree, not a release.
+
+    The entry's X.Y.Z is read off the front rather than parsed, because an
+    entry predating the scheme spells its prerelease PEP 440's way
+    (`0.5.0rc9`) and is never respelled -- the base is the same either way.
+    """
+    m = DEV_TAG.match(tag or "")
+    if not m:
+        return None
+    base, n = m.group(1), int(m.group(2))
+    newest = doc["releases"][0]
+    front = re.match(r"^(\d+\.\d+\.\d+)", str(newest.get("version", "")))
+    if not front or front.group(1) != base:
+        return "mismatch", (
+            "%s is a dev build of %s, but the newest entry in CHANGELOG.yaml "
+            "is %s. A dev tag carries the version the tree is at; stamp "
+            ".technoproj and the changelog first, or tag the version they "
+            "agree on." % (tag, base, newest.get("version")))
+    return newest, "%s-dev.%d" % (base, n)
+
+
+def fact_keys():
+    """Every key the declared facts name, in declared order, once each.
+    What BUILDINFO.txt carries beside tag/version/commit/branch/built."""
+    out = []
+    for f in CFG["facts"]:
+        for k in f["keys"]:
+            if k not in out:
+                out.append(k)
+    return out
+
+
+def buildinfo(doc, tag):
+    """The entry's compatibility facts as `key: value` lines. The same
+    facts the changelog states, printed by the same tool, so a release's
+    BUILDINFO.txt and its notes cannot disagree -- which is the whole
+    reason this is not shell in each repository's workflow."""
+    dev = dev_entry(doc, tag)
+    if dev and dev[0] == "mismatch":
+        sys.exit("changelog.py: " + dev[1])
+    if dev:
+        r = dev[0]
+    else:
+        r, _c = find_tag(doc, tag)
+        if r is None:
+            sys.exit("changelog.py: no release with tag %r" % tag)
+    return "".join("%s: %s\n" % (k, r[k])
+                   for k in fact_keys() if r.get(k) is not None)
 
 
 def pep440_to_semver(v):
@@ -526,7 +589,23 @@ def repo_checks(doc, base):
 
 
 def release_check(doc, tag, publishing):
-    """Gate a release on its changelog entry. -> (problems, outputs)."""
+    """Gate a release on its changelog entry. -> (problems, outputs).
+
+    The outputs are the release contract every workflow reads, and they are
+    printed in `key=value` form for GITHUB_OUTPUT: `version`, `prerelease`
+    and `dev`. `dev` is always present, so a caller can branch on it without
+    knowing whether this project cuts dev builds at all -- three
+    repositories each worked that out in their own shell, differently,
+    which is what this exists to stop."""
+    dev = dev_entry(doc, tag)
+    if dev and dev[0] == "mismatch":
+        return [dev[1]], {}
+    if dev:
+        # A dev build is never stable and never has an entry of its own; the
+        # tag is more authoritative than the tree, because the tree cannot
+        # know which commit was cut (doc/ALIGNMENT.md §7).
+        return [], {"prerelease": "true", "version": dev[1], "dev": "true"}
+
     entry, cand = find_tag(doc, tag)
     if entry is None:
         return (["no entry in CHANGELOG.yaml for tag %r -- add one before "
@@ -543,7 +622,8 @@ def release_check(doc, tag, publishing):
             bad.append("%s has no date" % tag)
     stable = entry.get("stable") and cand is None
     return bad, {"prerelease": "false" if stable else "true",
-                 "version": cand["version"] if cand else entry["version"]}
+                 "version": cand["version"] if cand else entry["version"],
+                 "dev": "false"}
 
 
 # ---------------------------------------------------------------------------
@@ -555,7 +635,8 @@ def main():
     ap = argparse.ArgumentParser(add_help=False)
     ap.add_argument("command", choices=["validate", "render", "mirror-tags",
                                         "latest", "generate", "check",
-                                        "consistency", "release-check"])
+                                        "consistency", "release-check",
+                                        "buildinfo"])
     ap.add_argument("format", nargs="?", choices=["md", "json"])
     ap.add_argument("--tag")
     ap.add_argument("--publish", action="store_true")
@@ -611,6 +692,10 @@ def main():
             return 1
         for k, v in out.items():
             print("%s=%s" % (k, v))
+    elif args.command == "buildinfo":
+        if not args.tag:
+            sys.exit("changelog.py: buildinfo needs --tag")
+        sys.stdout.write(buildinfo(doc, args.tag))
     elif args.command in ("generate", "check"):
         want = {md_path: render_md(doc)}
         if CFG["emit_json"]:

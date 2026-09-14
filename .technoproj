@@ -1,7 +1,7 @@
 {
   "TECHNO_VERSION": {
     "major": 0,
-    "minor": 2,
+    "minor": 3,
     "patch": 0,
     "pre": null
   },
@@ -19,6 +19,11 @@
     "latest_requires": [
       "stable"
     ]
+  },
+  "TECHNO_RELEASE": {
+    "workflow": "release.yml",
+    "name": "technoproj {tag}",
+    "artifacts": "dist-*"
   },
   "TECHNO_INIT_DIRS": [
     ".nogit",

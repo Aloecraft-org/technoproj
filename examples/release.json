@@ -1,0 +1,42 @@
+{
+  "_": [
+    "TECHNO_RELEASE blocks, for the three shapes the fleet actually has.",
+    "Every field has a default (see doc/STANDARD.md), so most repositories",
+    "declare two or three lines. This file is documentation: the examples",
+    "are keyed by repository and a real .technoproj carries one of them",
+    "inline under `TECHNO_RELEASE`."
+  ],
+
+  "dollup": {
+    "_": "A binary project with no registry leg -- the plain case.",
+    "name": "dollup {tag}",
+    "artifacts": "dollup-*"
+  },
+
+  "aloeschema": {
+    "_": [
+      "A Python project that also publishes to PyPI. The registry leg stays",
+      "in this repository and keeps its file name: PyPI's trusted publishing",
+      "matches the OIDC claim against a workflow filename here, so the",
+      "upload cannot move into technoproj's shared workflow and publish.yml",
+      "cannot be renamed without re-registering the publisher first.",
+      "Declaring it is what tells `doctor` the separate file is deliberate."
+    ],
+    "name": "aloeschema {tag}",
+    "artifacts": "dist-*",
+    "registry": {"kind": "pypi", "workflow": "publish.yml"}
+  },
+
+  "aloelite": {
+    "_": [
+      "Six build platforms, a container image, a PyPI leg and dev builds.",
+      "None of the platform detail belongs here -- that is the caller's own",
+      "build jobs, which the standard does not touch. Only `dev_builds`",
+      "changes anything the shared half does."
+    ],
+    "name": "Aloelite {tag}",
+    "artifacts": "dist-*",
+    "dev_builds": true,
+    "registry": {"kind": "pypi", "workflow": "publish.yml"}
+  }
+}

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "technoproj"
-version = "0.2.0"
+version = "0.3.0"
 description = "Shared release tooling for Aloecraft projects: one changelog engine and one version.mk, driven by each repository's .technoproj declaration."
 readme = "README.md"
 requires-python = ">=3.9"
