@@ -269,6 +269,7 @@ name: Release
 
 on:
   push:
+    branches: ["main"]     # a merge cuts a dev build — see Part 3
     tags: ["v*"]
   workflow_dispatch:
     inputs:
@@ -332,6 +333,7 @@ jobs:
       prerelease: ${{ needs.preflight.outputs.prerelease }}
       name:       Example ${{ needs.preflight.outputs.tag }}
       artifacts:  dist-*
+      keep-dev:   5          # how many dev RELEASES survive; tags are kept
 ```
 
 Three things in there are load-bearing and easy to get wrong:
@@ -368,7 +370,8 @@ What the workflow above does not say for itself:
 | `name` | release title; `{tag}`, `{body}`, `{base}`, `{semver}`, `{pep440}` | `<project> {tag}` |
 | `artifacts` | `download-artifact` pattern the publish leg merges | `dist-*` |
 | `changelog_gate` | run the changelog gates | on when `CHANGELOG.yaml` exists |
-| `dev_builds` | `-dev.<n>` tags take the fast path | `false` |
+| `dev_builds` | a merge to the default branch cuts a `-dev.<n>` build | `false` |
+| `keep-dev` (workflow input) | how many dev *releases* survive; tags are kept | `5` |
 | `registry` | the PyPI/npm leg: stays in this repo, and is handed the tag rather than left waiting for a push — see below | none |
 
 Every field has a default, so most repositories declare two or three lines.
@@ -519,6 +522,10 @@ variant. If one of those does not work somewhere, that repository has not
 finished [Part 4](#part-4--adopting) — `technoproj release doctor` says which
 part.
 
+Those four are for a **release**. For a build in someone's hands there is a
+shorter answer that needs no commands and no permissions at all: merge, and
+a dev build is cut. See [Dev builds](#dev-builds--where-merging-is-the-whole-procedure).
+
 ## 1. Stamp the version
 
 `.technoproj`'s `TECHNO_VERSION` is the one definition; every other spelling
@@ -600,20 +607,59 @@ browser and not a shell.
 [Permissions](#permissions) for why that is the whole of the difference
 between a release that works everywhere and one that works on some machines.
 
-## Dev builds
+## Dev builds — where merging is the whole procedure
 
-A `-dev.<n>` tag is one commit in someone's hands without a ten-minute gate:
-no changelog entry, ever; never mirrored; always a prerelease; pruned once
-newer ones exist. The number is allocated from the tags that exist, so it is
-global, never reused, and two branches cannot collide.
+```json
+"TECHNO_RELEASE": {"dev_builds": true}
+```
 
-`release-check` resolves a dev tag against the newest entry instead of
-demanding one of its own, and refuses it when that entry is a different
+```yaml
+on:
+  push:
+    branches: ["main"]
+```
+
+That is it. **Every merge to the default branch cuts a `-dev.<n>` build** and
+puts it on the releases page. Nobody runs a command, nobody pushes a tag,
+nobody dispatches anything.
+
+This is the part that matters if releasing has been painful. The four
+commands in Part 3 all need something from whoever runs them — a session
+scoped to the repository, `actions: write`, the right to push
+`refs/tags/*` — and which of those you have is invisible until it fails.
+**A merge needs none of them.** The workflow run is already going, so there
+is no ref for anyone to push and no dispatch to be refused; the tag is
+created at the end by the publish leg, with `contents: write` the repository
+grants itself. A session that can open a pull request can ship a build, and
+opening a pull request is the one thing every session can reliably do.
+
+It is safe to do on every merge because of what a dev build *is*
+(`ALIGNMENT.md` §7): no changelog entry, ever — so `mirror-tags` cannot list
+it and no mirror will carry it; always a prerelease, so `pip install` and
+`latest/` ignore it; and pruned once newer ones exist, so the releases page
+does not fill up. `keep-dev` says how many survive. Their **tags** are never
+deleted, which is what lets a number name exactly one build forever.
+
+The number is allocated from the tags that exist rather than a counter in the
+tree, so a build needs no commit, two branches cannot collide, and it is
+global across versions — `0.4.0-dev.104` then `0.5.0-dev.105`.
+
+```sh
+technoproj release dev-tag              # the tag one would take right now
+technoproj release dev-tag --if-changed # nothing, exit 3, if HEAD is already one
+```
+
+Only the default branch cuts one. A caller that watches `**` to self-test its
+own pipeline still rehearses on a feature branch and publishes nothing.
+
+`release-check` resolves a dev tag against the newest changelog entry instead
+of demanding one of its own, and refuses it when that entry is a different
 `X.Y.Z` — a dev build of a version the changelog has not reached is a
 mis-stamped tree, not a release.
 
-Declare `"dev_builds": true` in `TECHNO_RELEASE` for a repository that cuts
-them.
+**The real release is unchanged and still deliberate**: a `v*` tag, or
+`technoproj release cut`, with the changelog entry marked `released`. Merging
+never ships that.
 
 ---
 

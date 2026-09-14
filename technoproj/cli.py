@@ -130,6 +130,13 @@ def main(argv=None) -> int:
             p.add_argument("--publish", action="store_true",
                            help="the strict gate a publishing run faces; "
                                 "without it this is the rehearsal")
+    dt = rsub.add_parser("dev-tag",
+                         help="the tag a dev build would take next")
+    dt.add_argument("--if-changed", action="store_true",
+                    help="print nothing and exit 3 when the newest dev tag "
+                         "already names HEAD")
+    dt.add_argument("--force", action="store_true",
+                    help="print it even where dev builds are not declared")
     doc = rsub.add_parser("doctor",
                           help="what this repo is missing, and which release "
                                "route is open")
