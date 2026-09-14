@@ -16,11 +16,15 @@
   "aloeschema": {
     "_": [
       "A Python project that also publishes to PyPI. The registry leg stays",
-      "in this repository and keeps its file name: PyPI's trusted publishing",
-      "matches the OIDC claim against a workflow filename here, so the",
-      "upload cannot move into technoproj's shared workflow and publish.yml",
-      "cannot be renamed without re-registering the publisher first.",
-      "Declaring it is what tells `doctor` the separate file is deliberate."
+      "in this repository: PyPI's trusted publishing matches the OIDC claim",
+      "against a workflow filename here, so the upload cannot move into",
+      "technoproj's shared workflow, and renaming the file means",
+      "re-registering the publisher first.",
+      "Declaring it does real work, not just bookkeeping: the release hands",
+      "that workflow the tag by dispatch, because the tag it creates is made",
+      "by GITHUB_TOKEN and so fires no `on: push: tags:` trigger. Without",
+      "the declaration and the `actions: write` that goes with it, adopting",
+      "the standard would switch publishing off in silence."
     ],
     "name": "aloeschema {tag}",
     "artifacts": "dist-*",

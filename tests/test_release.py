@@ -232,6 +232,81 @@ def test_on_is_read_despite_yaml_reading_it_as_true(repo):
 
 
 # ---------------------------------------------------------------------------
+# the registry hand-off (issue #6)
+# ---------------------------------------------------------------------------
+
+# A registry workflow shaped the way all three of ours are: it triggers on a
+# tag push, which the release's own GITHUB_TOKEN-created tag never fires.
+TAG_TRIGGERED = ('name: Publish\non:\n  push:\n    tags: ["v*"]\n'
+                 "jobs:\n  publish:\n    runs-on: ubuntu-latest\n"
+                 "    permissions:\n      id-token: write\n"
+                 "      contents: read\n    steps: [{run: \"true\"}]\n")
+
+DISPATCHABLE = ('name: Publish\non:\n  push:\n    tags: ["v*"]\n'
+                "  workflow_dispatch:\n    inputs:\n"
+                "      tag: {type: string, required: true}\n"
+                "jobs:\n  publish:\n    runs-on: ubuntu-latest\n"
+                "    permissions:\n      id-token: write\n"
+                "      contents: read\n    steps: [{run: \"true\"}]\n")
+
+
+def with_registry(repo, publish_yml, handoff=True):
+    """Declare a pypi leg, and optionally wire the hand-off correctly."""
+    p = os.path.join(repo, ".technoproj")
+    proj = json.loads(open(p).read())
+    proj["TECHNO_RELEASE"] = {"registry": {"kind": "pypi",
+                                           "workflow": "publish.yml"}}
+    open(p, "w").write(json.dumps(proj, indent=2))
+    open(os.path.join(repo, ".github", "workflows", "publish.yml"),
+         "w").write(publish_yml)
+    if handoff:
+        edit(repo,
+             "    permissions:\n      contents: write\n",
+             "    permissions:\n      contents: write\n      actions: write\n")
+        edit(repo,
+             "    uses: Aloecraft-org/technoproj"
+             "/.github/workflows/release-publish.yml@v0.3.0",
+             "    uses: Aloecraft-org/technoproj"
+             "/.github/workflows/release-publish.yml@v0.3.0\n"
+             "    with:\n      registry-workflow: publish.yml")
+
+
+def test_a_registry_leg_left_waiting_for_a_tag_push_is_refused(repo):
+    # The whole of issue #6: adopting the standard would switch publishing
+    # off, and nothing would say so. It has to be a hard error.
+    with_registry(repo, TAG_TRIGGERED, handoff=False)
+    r = cli("release", "check-workflow", root=repo)
+    assert r.returncode == 1
+    assert "registry-workflow: publish.yml" in r.stderr
+    assert "actions: write" in r.stderr
+    assert "workflow_dispatch" in r.stderr
+
+
+def test_a_registry_workflow_without_a_tag_input_is_refused(repo):
+    # Everything wired except the input the tag travels in. aloeschema's
+    # workflow_dispatch takes no inputs today, so this is its exact shape.
+    no_input = DISPATCHABLE.replace(
+        "    inputs:\n      tag: {type: string, required: true}\n", "")
+    with_registry(repo, no_input)
+    r = cli("release", "check-workflow", root=repo)
+    assert r.returncode == 1
+    assert "`tag` input" in r.stderr
+
+
+def test_a_correctly_handed_off_registry_leg_conforms(repo):
+    with_registry(repo, DISPATCHABLE)
+    r = cli("release", "check-workflow", root=repo)
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_a_repo_with_no_registry_leg_needs_no_handoff(repo):
+    # The permission is only demanded of repositories that actually publish
+    # to a registry; everyone else keeps contents: write alone.
+    r = cli("release", "check-workflow", root=repo)
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+# ---------------------------------------------------------------------------
 # the permission trap
 # ---------------------------------------------------------------------------
 

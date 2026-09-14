@@ -78,7 +78,31 @@ releases:
         are sitting on it. It is harmless while such a job only uploads to a
         registry, and the first checkout or release step added to it fails
         with a 403 that reads like an organisation policy problem.
+      - |
+        Fix #6: adopting the standard would have switched PyPI and npm
+        publishing off, silently, in all three repositories that have a
+        registry leg. The publish job creates the tag with `GITHUB_TOKEN`
+        and GitHub starts no workflow run from an event that token created,
+        so a `publish.yml` triggered `on: push: tags:` never fires -- the
+        release appears, the assets upload, and only the registry still
+        serving the previous version says anything went wrong. The release
+        now hands the tag over by `workflow_dispatch`, which is the
+        documented exception to that guard and the same conclusion
+        aloelite's nightly.yml already reached. `check-workflow` refuses a
+        declared registry leg that is not wired for it, so the combination
+        cannot be adopted by accident.
+      - |
+        Fix #6: `preflight` refuses to publish when `doc/STANDARD.md` pins a
+        technoproj version other than the one being released. The document
+        tells every project which version to install, and a pin at a tag
+        that does not exist fails the install outright -- which is what it
+        was doing, and nothing in the tree could see it.
     known_issues:
+      - |
+        The hand-off is read off the recursion guard's documented behaviour
+        and the token `action-gh-release` uses, plus aloelite's working
+        nightly, not off a release cut to prove it end to end. Worth one
+        throwaway repository before the three registry repos are rewired.
       - |
         Adoption is per repository and none has landed yet; `technoproj
         release doctor` lists what each one is missing. diluvium needs its
