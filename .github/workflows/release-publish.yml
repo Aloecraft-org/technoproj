@@ -171,7 +171,9 @@ jobs:
           # the workflow file from, and where an already-registered trusted
           # publisher expects it. The tag being built travels as an input.
           BRANCH=$(gh api "repos/$REPO" --jq .default_branch)
-          if ! gh api --method POST                  "repos/$REPO/actions/workflows/$REGISTRY_WF/dispatches"                  -f "ref=$BRANCH" -f "inputs[tag]=$TAG" ; then
+          if ! gh api --method POST \
+                 "repos/$REPO/actions/workflows/$REGISTRY_WF/dispatches" \
+                 -f "ref=$BRANCH" -f "inputs[tag]=$TAG"; then
             echo "::error::could not dispatch $REGISTRY_WF for $TAG. The release is published, but nothing reached the registry. Check that $REGISTRY_WF exists on $BRANCH, declares workflow_dispatch with a 'tag' input, and that this job has 'actions: write'."
             exit 1
           fi
