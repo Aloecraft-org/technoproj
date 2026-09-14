@@ -50,16 +50,28 @@ jobs:
 """
 
 
+# Actions sets these on every job, and they are exactly the inputs the
+# release tooling reads about "which repository is this". A test that
+# inherits them passes on a workstation and fails in CI -- which is how this
+# file learned to strip them.
+AMBIENT = ("GITHUB_REPOSITORY", "GITHUB_TOKEN", "GH_TOKEN", "GITHUB_API_URL",
+           "GITHUB_REF", "GITHUB_SHA", "GITHUB_ACTIONS")
+
+
+def env_for(root):
+    e = {k: v for k, v in os.environ.items() if k not in AMBIENT}
+    e["TECHNO_ROOT"] = str(root)
+    return e
+
+
 def changelog(*args, root=FIXTURE):
     return subprocess.run([sys.executable, "-m", "technoproj.changelog", *args],
-                          env=dict(os.environ, TECHNO_ROOT=str(root)),
-                          capture_output=True, text=True)
+                          env=env_for(root), capture_output=True, text=True)
 
 
 def cli(*args, root):
     return subprocess.run([sys.executable, "-m", "technoproj.cli", *args],
-                          env=dict(os.environ, TECHNO_ROOT=str(root)),
-                          capture_output=True, text=True)
+                          env=env_for(root), capture_output=True, text=True)
 
 
 @pytest.fixture
@@ -275,11 +287,26 @@ def test_preflight_rehearses_by_default_and_is_strict_with_publish(repo):
 
 def test_cut_sends_nothing_without_yes(repo):
     # A release is outward-facing; printing what it would do is the default.
-    r = cli("release", "cut", "--tag", "v0.2.0", "--publish",
+    # `--ref` so the dry run needs no network at all.
+    r = cli("release", "cut", "--tag", "v0.2.0", "--publish", "--ref", "main",
             root=repo)
     assert r.returncode == 0
     assert "Nothing sent" in r.stdout
     assert "Aloecraft-org/fixture" in r.stdout
+
+
+def test_the_tree_names_the_repository_not_the_ambient_job(repo):
+    # Under Actions, GITHUB_REPOSITORY names the job's own repository. It
+    # must not win over the tree TECHNO_ROOT points at, or `doctor` and `cut`
+    # silently report on -- and dispatch to -- a different repository than
+    # the one they were given.
+    e = env_for(repo)
+    e["GITHUB_REPOSITORY"] = "Aloecraft-org/some-other-repo"
+    r = subprocess.run([sys.executable, "-m", "technoproj.cli", "release",
+                        "cut", "--tag", "v0.2.0", "--ref", "main"],
+                       env=e, capture_output=True, text=True)
+    assert "Aloecraft-org/fixture" in r.stdout, r.stdout + r.stderr
+    assert "some-other-repo" not in r.stdout
 
 
 def test_cut_refuses_a_tag_the_changelog_does_not_claim(repo):

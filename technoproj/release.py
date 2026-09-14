@@ -120,17 +120,24 @@ def title(cfg, tag, v=None):
 # ---------------------------------------------------------------------------
 
 def slug():
-    """owner/repo, from the environment CI sets or from origin."""
-    env = os.environ.get("GITHUB_REPOSITORY")
-    if env and "/" in env:
-        return env
+    """owner/repo for the tree being operated on.
+
+    The TREE's own origin wins over `GITHUB_REPOSITORY`. That ordering is
+    the point: the env var names whatever repository the ambient job belongs
+    to, which is not necessarily the tree `TECHNO_ROOT` points at -- and a
+    release tool that silently reports on a different repository than the
+    one it was pointed at is the failure this whole thing exists to stop.
+    The env var stays as the fallback for a checkout with no remote
+    configured.
+    """
     cfg = _read(".git", "config") or ""
     m = re.search(r'\[remote "origin"\][^\[]*?url\s*=\s*(\S+)', cfg, re.S)
-    if not m:
-        return None
-    url = m.group(1)
-    m = re.search(r"github\.com[:/]+([^/]+/[^/\s]+?)(?:\.git)?$", url)
-    return m.group(1) if m else None
+    if m:
+        got = re.search(r"github\.com[:/]+([^/]+/[^/\s]+?)(?:\.git)?$", m.group(1))
+        if got:
+            return got.group(1)
+    env = os.environ.get("GITHUB_REPOSITORY")
+    return env if env and "/" in env else None
 
 
 def token():
@@ -171,13 +178,19 @@ def api(path, method="GET", body=None):
 
 
 def default_branch(repo):
-    """The repository's default branch, or `main` when it cannot be read."""
-    status, info = api("/repos/%s" % repo)
+    """The repository's default branch, or None when it cannot be read.
+
+    Asked rather than assumed: it is not `main` everywhere (diluvium's
+    history carries `master` too), and the workflow file is read from this
+    ref, so guessing wrong dispatches nothing with a confusing 404.
+    """
+    try:
+        status, info = api("/repos/%s" % repo)
+    except ReleaseError:
+        return None
     if status == 200 and (info or {}).get("default_branch"):
         return info["default_branch"]
-    print("technoproj: cannot read %s's default branch (HTTP %s); assuming "
-          "`main`. Pass --ref to be sure." % (repo, status), file=sys.stderr)
-    return "main"
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -673,10 +686,15 @@ def cut(proj, args):
     if not repo:
         raise ReleaseError("no GitHub origin remote to dispatch against")
 
-    # The workflow file is read from this ref, so it must be a branch that
-    # has it -- and the default branch is not `main` everywhere (diluvium's
-    # history carries `master` too). Ask, rather than assume.
     ref = args.ref or default_branch(repo)
+    if ref is None:
+        # Only a dispatch actually needs it; a dry run says so and carries on,
+        # so `cut` without --yes works with no network at all.
+        if args.yes:
+            raise ReleaseError(
+                "cannot read %s's default branch, and the workflow file is "
+                "read from that ref -- pass --ref to name it" % repo)
+        ref = "(the default branch)"
 
     body = {"ref": ref,
             "inputs": {"ref": args.ref or "", "tag": tag,
