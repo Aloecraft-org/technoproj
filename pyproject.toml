@@ -22,12 +22,20 @@ technoproj-changelog = "technoproj.changelog:main"
 # The status board's collector, so a host gets it by installing the package
 # rather than by a second copy rsynced into the fleet.
 technoproj-status-collect = "technoproj.status:main"
-# Everything else: placing version.mk into a consuming repo, and checking it
-# has not drifted.
+# Everything else: placing version.mk and the lockstep layout into a
+# consuming repo, and checking neither has drifted.
 technoproj = "technoproj.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["technoproj*"]
 
 [tool.setuptools.package-data]
-technoproj = ["data/*.mk", "profiles/*.json"]
+technoproj = [
+    "data/*.mk",
+    "profiles/*.json",
+    "data/lockstep/shared/*.md",
+    "data/lockstep/scaffold/claude/*.md",
+    "data/lockstep/scaffold/doc/lockstep/*",
+    "data/lockstep/scaffold/github/CODEOWNERS",
+    "data/lockstep/scaffold/github/rulesets/*.json",
+]

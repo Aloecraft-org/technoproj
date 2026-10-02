@@ -6,7 +6,10 @@ repository's `.technoproj` rather than forked into a copy.
 
 > **Setting up a project?** [`doc/STANDARD.md`](doc/STANDARD.md) is the one
 > document to read: how to write a consistent changelog, and the release
-> action that goes with it.
+> action that goes with it. If an agent will operate the repository,
+> [`doc/LOCKSTEP.md`](doc/LOCKSTEP.md) is the layout it works in, and
+> [`doc/LOCKSTEP-MIGRATION.md`](doc/LOCKSTEP-MIGRATION.md) moves an
+> existing repository onto it.
 
 Before this existed, `changelog.py` was 423 / 484 / 576 lines in diluvium /
 diluvium-drt / aloelite — one tool, copied twice, then drifted. `version.mk`
@@ -33,6 +36,7 @@ technoproj show                      # this repo's version, every spelling
 technoproj release doctor            # what this repo still needs
 technoproj-changelog validate        # schema + consistency
 technoproj-changelog generate        # write CHANGELOG.md and changelog.json
+technoproj lockstep init             # the operating layout, if an agent runs it
 ```
 
 `technoproj-changelog` is argument-for-argument compatible with the
@@ -41,6 +45,7 @@ not of usage. In CI:
 
 ```sh
 technoproj check                     # version.mk has not drifted
+technoproj lockstep check            # the operating layout holds
 technoproj release check-workflow    # the release workflow still conforms
 technoproj-changelog check           # the generated files match the YAML
 technoproj-changelog consistency     # the tree agrees with the newest entry

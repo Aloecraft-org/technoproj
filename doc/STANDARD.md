@@ -16,8 +16,9 @@ Three things are standardised, and this covers all of them:
 [Part 4](#part-4--adopting) is the checklist for a repository that has none
 of it yet.
 
-[`ALIGNMENT.md`](ALIGNMENT.md) is the one other document: the version scheme,
-artifact naming and `BUILDINFO.txt`. Its canonical copy and this one both
+[`ALIGNMENT.md`](ALIGNMENT.md) is the version scheme, artifact naming and
+`BUILDINFO.txt`. [`LOCKSTEP.md`](LOCKSTEP.md) is the operating layout for a
+repository an agent operates. Its canonical copy and this one both
 live in
 [Aloecraft-org/technoproj](https://github.com/Aloecraft-org/technoproj); a
 repository vendors them byte-identical and does not edit them, so they can be
@@ -688,6 +689,7 @@ otherwise.
 ```sh
 technoproj show                      # this repo's version, every spelling
 technoproj sync | check              # place / verify script/version.mk
+technoproj lockstep init | sync | check   # the operating layout (LOCKSTEP.md)
 technoproj release plan              # what a release of this tree would be
 technoproj release preflight         # every gate CI runs, run here first
 technoproj release doctor            # what is missing, and which route is open

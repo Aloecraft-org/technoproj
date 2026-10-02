@@ -39,6 +39,15 @@ different commit than the one being built.
   themselves read from (`github.job_workflow_sha`), so the tool and
   the workflow are one version by construction and a repository has
   one pin to keep, not two.
+- `technoproj lockstep` -- `init`, `sync` and `check` -- and
+  `doc/LOCKSTEP.md`: the operating layout for a repository an agent
+  operates (`.claude/` rules and log,
+  `doc/lockstep/` as the agreed truth, `authority.yaml` with its
+  self-merge lane). The three shared rules are placed and checked
+  byte for byte like `version.mk`, because the hand copies of
+  `human-surfaces.md` in three repositories had already drifted into
+  two generations. `check` also refuses a self-merge lane that
+  reaches the rules or `authority.yaml`.
 - `technoproj release` -- `plan`, `preflight`, `doctor`,
   `check-workflow` and `cut`. `preflight` runs every gate CI runs, on
   a workstation, so a release that would fail does so in seconds

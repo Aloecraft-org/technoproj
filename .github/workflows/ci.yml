@@ -25,6 +25,14 @@ jobs:
           mkdir -p /tmp/consumer && cd /tmp/consumer
           technoproj sync
           technoproj check
+      # The same for the operating layout: a fresh repository gets every
+      # file, and check names the scaffold the owner still has to fill in.
+      - name: lockstep init and check round-trip
+        run: |
+          mkdir -p /tmp/lockstep && cd /tmp/lockstep
+          technoproj lockstep init --owner aloecraft
+          if technoproj lockstep check; then exit 1; fi
+          technoproj lockstep check 2>&1 | grep -q 'goal.md is not filled in yet'
       # Dogfood: this repository carries its own .technoproj and CHANGELOG,
       # so it can run every check it asks consumers to run.
       - name: our own declaration holds

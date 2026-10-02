@@ -12,6 +12,7 @@ copy is checked rather than trusted.
     technoproj show              this repo's version in every spelling
     technoproj dollup-manifest   build a dollup package from .technoproj
     technoproj release ...       the release process (see release.py)
+    technoproj lockstep ...      the operating layout (see lockstep.py)
 
 `sync` is how a repository adopts a new version.mk; `check` in CI is what
 stops the copy going stale, which is the failure this package exists to end
@@ -154,7 +155,19 @@ def main(argv=None) -> int:
                      help="actually dispatch; without it this only prints "
                           "what it would send")
 
+    ls = sub.add_parser("lockstep", help="the operating layout")
+    lsub = ls.add_subparsers(dest="lockstep_command", required=True)
+    li = lsub.add_parser("init", help="place every missing file, then sync; "
+                                      "never overwrites")
+    li.add_argument("--owner", help="GitHub login written into CODEOWNERS")
+    lsub.add_parser("sync", help="rewrite the shared rules from the package")
+    lsub.add_parser("check", help="every gap, in the order to fix it (CI)")
+
     args = ap.parse_args(argv)
+
+    if args.command == "lockstep":
+        from . import lockstep as _lockstep
+        return _lockstep.main(args, root())
 
     if args.command == "release":
         from . import release as _release
