@@ -469,3 +469,20 @@ def test_cut_refuses_a_tag_the_changelog_does_not_claim(repo):
             root=repo)
     assert r.returncode == 1
     assert "no entry in CHANGELOG.yaml" in r.stderr
+
+
+# `doctor`'s dispatch route, from GitHub's answer for the workflow file (#7).
+# A deleted workflow still answers 200 at its old filename; only `active` is
+# an open route.
+@pytest.mark.parametrize("status, wf, verdict", [
+    (200, {"state": "active"}, "OPEN"),
+    (200, {"state": "deleted"}, "BLOCKED"),
+    (200, {"state": "disabled_manually"}, "BLOCKED"),
+    (200, {"state": "disabled_inactivity"}, "BLOCKED"),
+    (200, None, "BLOCKED"),
+    (404, None, "BLOCKED"),
+    (500, None, "unknown"),
+])
+def test_dispatch_route_reads_the_workflow_state(status, wf, verdict):
+    from technoproj.release import dispatch_route
+    assert dispatch_route(status, wf, "release.yml").startswith(verdict)

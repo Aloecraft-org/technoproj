@@ -151,6 +151,34 @@ def token():
     return None
 
 
+def dispatch_route(status, wf, wf_file):
+    """The dispatch route's line in `doctor`, from GitHub's answer for the
+    workflow file.
+
+    GitHub keeps a deleted workflow in its registry and keeps answering 200
+    for its old filename, with `state: deleted` in the body. So a 200 alone
+    says nothing; only `state: active` is dispatchable. The disabled states
+    (`disabled_manually`, `disabled_inactivity`, `disabled_fork`) are not an
+    open route either (#7)."""
+    state = (wf or {}).get("state")
+    if status == 200 and state == "active":
+        return ("OPEN -- %s is registered; `technoproj release cut` will "
+                "work" % wf_file)
+    if status == 404:
+        return ("BLOCKED -- GitHub does not have %s registered. A workflow is "
+                "registered once it exists on the default branch; until then "
+                "dispatch it by numeric id, or merge it." % wf_file)
+    if status == 200 and state == "deleted":
+        return ("BLOCKED -- GitHub knows %s only as a deleted workflow, so it "
+                "cannot be dispatched. Put the file back on the default "
+                "branch." % wf_file)
+    if status == 200:
+        return ("BLOCKED -- %s is registered but %s, so it cannot be "
+                "dispatched. Enable it in the Actions tab."
+                % (wf_file, state or "in no reported state"))
+    return "unknown (HTTP %s)" % status
+
+
 def api(path, method="GET", body=None):
     """-> (status, parsed body or None). Never raises for HTTP status."""
     url = path if path.startswith("http") else API + path
@@ -765,17 +793,8 @@ def doctor(proj, args):
 
     # Route 1: dispatch. Needs `actions: write` and nothing else.
     wf_file = cfg["workflow"]
-    st, _ = api("/repos/%s/actions/workflows/%s" % (owner_repo, wf_file))
-    if st == 200:
-        print("    dispatch      OPEN -- %s is registered; "
-              "`technoproj release cut` will work" % wf_file)
-    elif st == 404:
-        print("    dispatch      BLOCKED -- GitHub does not have %s "
-              "registered. A workflow is registered once it exists on the "
-              "default branch; until then dispatch it by numeric id, or "
-              "merge it." % wf_file)
-    else:
-        print("    dispatch      unknown (HTTP %s)" % st)
+    st, wf = api("/repos/%s/actions/workflows/%s" % (owner_repo, wf_file))
+    print("    dispatch      %s" % dispatch_route(st, wf, wf_file))
 
     # Route 2: pushing the tag. The one that varies by session.
     st, wperm = api("/repos/%s/actions/permissions/workflow" % owner_repo)

@@ -7,7 +7,7 @@ edit that file, then run `technoproj-changelog generate`.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.3.0] - unreleased (prerelease)
+## [0.3.0] - 2026-10-02
 
 `v0.3.0`
 
@@ -130,6 +130,18 @@ different commit than the one being built.
   target stays, because `make` must work with no virtualenv.
 - Pruning superseded dev releases moved into the shared publish leg
   from aloelite's nightly, as `keep-dev`.
+- Fix #10: re-publishing an existing tag could fail at the last step
+  with "403 Resource not accessible by integration", on a token that
+  had `contents: write` and no ruleset in the way. The publish leg
+  passed `target_commitish` unconditionally, which makes GitHub
+  attempt a tag-ref write, and a churned ref refuses it. It is now
+  passed only when the run creates the tag; an existing tag is only
+  associated with the release.
+- Fix #7: `technoproj release doctor` called the dispatch route OPEN
+  for a deleted workflow. GitHub keeps answering 200 for a deleted
+  workflow's old filename, with `state: deleted` in a body nothing
+  read. Only `state: active` is an open route now; deleted and
+  disabled workflows are reported BLOCKED with what to do.
 
 ### Known issues
 
