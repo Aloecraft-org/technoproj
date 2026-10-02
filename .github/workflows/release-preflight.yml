@@ -236,9 +236,11 @@ jobs:
           technoproj-changelog check
           technoproj-changelog consistency
           # A rehearsal with no tag is checked against the newest entry, so
-          # the pipeline can be proved before a tag exists.
+          # the pipeline can be proved before a tag exists. The newest, not
+          # `latest`: before a project's first release nothing is latest, and
+          # after it the newest entry is the one the next tag will claim.
           T="$TAG"
-          [ -n "$T" ] || T=$(technoproj-changelog latest)
+          [ -n "$T" ] || T=$(technoproj-changelog newest)
           if [ "$PUBLISH" = true ]; then
             technoproj-changelog release-check --tag "$T" --publish | tee -a "$GITHUB_OUTPUT"
           else

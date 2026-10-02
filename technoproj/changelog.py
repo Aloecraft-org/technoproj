@@ -22,6 +22,7 @@ Usage:
   technoproj-changelog mirror-tags           tags the mirror should carry,
                                      newest first
   technoproj-changelog latest                the tag `latest/` resolves to
+  technoproj-changelog newest                the newest entry's tag, released or not
   technoproj-changelog generate              write CHANGELOG.md and changelog.json
   technoproj-changelog check                 fail unless the generated files match
                                      the YAML; for CI
@@ -638,7 +639,7 @@ def main():
     global CFG
     ap = argparse.ArgumentParser(add_help=False)
     ap.add_argument("command", choices=["validate", "render", "mirror-tags",
-                                        "latest", "generate", "check",
+                                        "latest", "newest", "generate", "check",
                                         "consistency", "release-check",
                                         "buildinfo"])
     ap.add_argument("format", nargs="?", choices=["md", "json"])
@@ -683,6 +684,8 @@ def main():
         if tag is None:
             sys.exit("changelog.py: nothing is released yet, so nothing is latest")
         print(tag)
+    elif args.command == "newest":
+        print(tag_of(doc["releases"][0]))
     elif args.command == "consistency":
         problems = consistency(doc)
         if problems:
