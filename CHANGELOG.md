@@ -7,7 +7,7 @@ edit that file, then run `technoproj-changelog generate`.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.3.0] - unreleased (prerelease)
+## [0.3.0] - 2026-10-02
 
 `v0.3.0`
 

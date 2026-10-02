@@ -4,8 +4,10 @@ repo: Aloecraft-org/technoproj
 releases:
   - version: "0.3.0"
     tag: v0.3.0
-    status: unreleased
-    stable: false
+    date: "2026-10-02"
+    status: released
+    stable: true
+    latest: true
     mirror: false
     summary: |
       One release process, shared rather than described. The version scheme
@@ -150,7 +152,6 @@ releases:
     date: "2026-09-12"
     status: released
     stable: true
-    latest: true
     mirror: false
     summary: |
       The status board's collector ships inside the package, so a host gets
