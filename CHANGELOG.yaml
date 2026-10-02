@@ -72,6 +72,14 @@ releases:
         is a mis-stamped tree, not a release.
     fixed:
       - |
+        A project that has not released yet could not pass `validate`:
+        exactly one entry had to carry `latest: true`, and that entry had to
+        be released, so a first entry that was honestly `unreleased` failed
+        every gate, preflight and dev builds included. diluvium-lab and
+        dirt-launcher both hit it. Zero `latest` entries is now right until
+        the first entry is released, and exactly one after; `latest` exits
+        non-zero when there is none rather than raising.
+      - |
         `technoproj release doctor` reports the `contents: none` trap:
         naming any permission drops every unnamed one, so a job asking only
         for `id-token: write` has no `contents` at all. Four repositories

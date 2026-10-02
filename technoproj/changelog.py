@@ -352,10 +352,14 @@ def validate(doc):
                     bad.append("%s: %s[%d] must be a non-empty string"
                                % (where, key, i))
 
-    if len(latest) != 1:
+    # A project that has not released yet has nothing for `latest/` to
+    # resolve to, and claiming one would be the file lying about itself. So
+    # zero is right until the first entry is released, and exactly one after.
+    released = any(r.get("status") == "released" for r in releases)
+    if len(latest) > 1 or (released and not latest):
         bad.append("exactly one release must carry 'latest: true' (found %d)"
                    % len(latest))
-    else:
+    elif latest:
         r = latest[0]
         for key in CFG["latest_requires"]:
             if not r.get(key):
@@ -660,7 +664,8 @@ def main():
     if args.command == "validate":
         print("OK: %d releases, latest=%s, %d mirrored"
               % (len(doc["releases"]),
-                 next(tag_of(r) for r in doc["releases"] if r.get("latest")),
+                 next((tag_of(r) for r in doc["releases"] if r.get("latest")),
+                      "none"),
                  sum(1 for r in doc["releases"] if r.get("mirror"))))
     elif args.command == "render":
         if args.format == "json":
@@ -674,7 +679,10 @@ def main():
             if r.get("mirror"):
                 print(tag_of(r))
     elif args.command == "latest":
-        print(next(tag_of(r) for r in doc["releases"] if r.get("latest")))
+        tag = next((tag_of(r) for r in doc["releases"] if r.get("latest")), None)
+        if tag is None:
+            sys.exit("changelog.py: nothing is released yet, so nothing is latest")
+        print(tag)
     elif args.command == "consistency":
         problems = consistency(doc)
         if problems:

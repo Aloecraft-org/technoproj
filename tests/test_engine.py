@@ -46,6 +46,27 @@ def test_unknown_key_is_rejected():
         assert "unknown key 'nonsense'" in r.stderr
 
 
+def test_no_latest_before_the_first_release():
+    # A project's first entry is unreleased, so nothing can be latest yet.
+    with tempfile.TemporaryDirectory() as tmp:
+        shutil.copy(FIXTURE / ".technoproj", tmp)
+        p = pathlib.Path(tmp) / "CHANGELOG.yaml"
+        p.write_text(
+            "schema: 1\nrepo: Aloecraft-org/example\nreleases:\n"
+            "  - version: \"0.1.0\"\n    tag: v0.1.0\n    status: unreleased\n"
+            "    stable: true\n    mirror: false\n    summary: |\n      First.\n")
+        r = run("validate", root=tmp)
+        assert r.returncode == 0, r.stderr
+        assert "latest=none" in r.stdout
+        assert run("latest", root=tmp).returncode == 1
+        # Once an entry is released, one must carry it again.
+        p.write_text(p.read_text().replace("status: unreleased",
+                                           "status: released\n    date: \"2026-10-02\""))
+        r = run("validate", root=tmp)
+        assert r.returncode == 1
+        assert "found 0" in r.stderr
+
+
 def test_release_check_reports_prerelease_flag():
     r = run("release-check", "--tag", "v0.2.0")
     assert r.returncode == 0, r.stderr
