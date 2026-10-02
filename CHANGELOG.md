@@ -81,6 +81,11 @@ different commit than the one being built.
   dirt-launcher both hit it. Zero `latest` entries is now right until
   the first entry is released, and exactly one after; `latest` exits
   non-zero when there is none rather than raising.
+- A rehearsal dispatched with no tag was checked against `latest`,
+  where the preflight's own comment promised the newest entry: it
+  rehearsed the last release rather than the one in progress, and
+  before a first release it had nothing to check at all. It now uses
+  the new `technoproj-changelog newest`.
 - `technoproj release doctor` reports the `contents: none` trap:
   naming any permission drops every unnamed one, so a job asking only
   for `id-token: write` has no `contents` at all. Four repositories

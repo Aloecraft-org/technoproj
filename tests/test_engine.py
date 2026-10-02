@@ -59,6 +59,10 @@ def test_no_latest_before_the_first_release():
         assert r.returncode == 0, r.stderr
         assert "latest=none" in r.stdout
         assert run("latest", root=tmp).returncode == 1
+        # A rehearsal with no tag checks the newest entry instead.
+        assert run("newest", root=tmp).stdout.strip() == "v0.1.0"
+        r = run("release-check", "--tag", "v0.1.0", root=tmp)
+        assert r.returncode == 0, r.stderr
         # Once an entry is released, one must carry it again.
         p.write_text(p.read_text().replace("status: unreleased",
                                            "status: released\n    date: \"2026-10-02\""))
