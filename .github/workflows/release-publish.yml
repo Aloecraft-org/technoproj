@@ -151,11 +151,34 @@ jobs:
             | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
+      # `target_commitish` only for a tag this run creates. For a tag that
+      # already exists it is redundant, and passing it makes GitHub attempt a
+      # tag-ref write that a churned ref refuses with "403 Resource not
+      # accessible by integration" -- which reads as a permissions problem
+      # and is not one (#10). An empty value is omitted by the action, so an
+      # existing tag is only associated with the release.
+      - name: Does the tag exist already
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          SHA: ${{ inputs.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          if gh api "repos/$REPO/git/ref/tags/$TAG" --silent 2>/dev/null; then
+            echo "$TAG exists: associating the release with it, no ref write"
+            echo "commitish=" >> "$GITHUB_OUTPUT"
+          else
+            echo "$TAG is new: creating it at $SHA"
+            echo "commitish=$SHA" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create or update the release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag }}
-          target_commitish: ${{ inputs.sha }}
+          target_commitish: ${{ steps.target.outputs.commitish }}
           name: ${{ inputs.name || inputs.tag }}
           body_path: release_meta/notes.md
           files: release_dist/*

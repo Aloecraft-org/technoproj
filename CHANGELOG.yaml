@@ -4,8 +4,10 @@ repo: Aloecraft-org/technoproj
 releases:
   - version: "0.3.0"
     tag: v0.3.0
-    status: unreleased
-    stable: false
+    date: "2026-10-02"
+    status: released
+    stable: true
+    latest: true
     mirror: false
     summary: |
       One release process, shared rather than described. The version scheme
@@ -134,6 +136,20 @@ releases:
       - |
         Pruning superseded dev releases moved into the shared publish leg
         from aloelite's nightly, as `keep-dev`.
+      - |
+        Fix #10: re-publishing an existing tag could fail at the last step
+        with "403 Resource not accessible by integration", on a token that
+        had `contents: write` and no ruleset in the way. The publish leg
+        passed `target_commitish` unconditionally, which makes GitHub
+        attempt a tag-ref write, and a churned ref refuses it. It is now
+        passed only when the run creates the tag; an existing tag is only
+        associated with the release.
+      - |
+        Fix #7: `technoproj release doctor` called the dispatch route OPEN
+        for a deleted workflow. GitHub keeps answering 200 for a deleted
+        workflow's old filename, with `state: deleted` in a body nothing
+        read. Only `state: active` is an open route now; deleted and
+        disabled workflows are reported BLOCKED with what to do.
     known_issues:
       - |
         The hand-off is read off the recursion guard's documented behaviour
@@ -150,7 +166,6 @@ releases:
     date: "2026-09-12"
     status: released
     stable: true
-    latest: true
     mirror: false
     summary: |
       The status board's collector ships inside the package, so a host gets
