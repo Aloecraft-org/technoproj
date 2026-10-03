@@ -90,6 +90,12 @@ file at its head commit (`blob/<full sha>/<path>`), so the owner reads the
 revision they would merge rather than whatever `main` holds. The rule text
 is in `.claude/rules/lockstep.md`.
 
+Every reference to an item names its repo (`discofetch Q-003`, `ambassador I1`), and in
+anything the owner reads it links the line at a full commit sha, saying
+"on main" or "on #N, not merged". Ids repeat across repositories, and an
+item on an open pull request is not on `main` yet. The rule text is in the
+References section of `.claude/rules/lockstep.md`.
+
 CODEOWNERS names the owner on `doc/lockstep/`, `.claude/CLAUDE.md`,
 `.claude/rules/` and itself.
 
