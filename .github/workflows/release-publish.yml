@@ -188,8 +188,13 @@ jobs:
       # The tag above was created by GITHUB_TOKEN and so triggers nothing.
       # This is the hand-off that a `v*` push would have been. It is loud on
       # failure by design: a silent one here is exactly the bug.
+      #
+      # Never for a `-dev.<n>` tag: a dev build reaches no registry
+      # (doc/ALIGNMENT.md §7), and a PyPI upload is immutable. Worse than a
+      # dev version, the tree a dev tag names still carries the release's own
+      # version, so a registry workflow that builds it would upload a FINAL.
       - name: Hand the tag to the registry workflow
-        if: inputs.registry-workflow != ''
+        if: inputs.registry-workflow != '' && !contains(inputs.tag, '-dev.')
         env:
           GH_TOKEN: ${{ github.token }}
           REGISTRY_WF: ${{ inputs.registry-workflow }}
