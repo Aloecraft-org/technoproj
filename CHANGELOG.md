@@ -7,15 +7,45 @@ edit that file, then run `technoproj-changelog generate`.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.3.1] - unreleased
+## [0.4.0] - 2026-10-03
 
-`v0.3.1`
+`v0.4.0`
 
-Two fixes for a project that has not released yet, which 0.3.0
-shipped without: they sat on a branch while the tag was cut. Until
-they land, a first release cannot pass the shared preflight, and
-dirt-launcher pins the engine to a commit and its workflows to
-v0.3.0-dev.1.
+Repositories that run the lockstep layout can now ask each other for
+work without writing to each other. An operator that needed something
+from another repository had two options before: write there directly,
+which its authority sorts as approve_first, or ask the owner to carry
+the message. Each repository now has an outbox, and a router delivers
+what is in it.
+
+It also carries the two first-release fixes 0.3.0 shipped without,
+which were never cut as 0.3.1 on their own.
+
+### Added
+
+- `doc/lockstep/dispatch.md`, an append-only outbox. An item is
+  `## D-001 To: name. Title` followed by `Why:`, `Ask:`, `Approval:`
+  and `Re:`. A new item rides the self_merge lane like a new queue
+  item; past items are never edited, and a reply is a new item in the
+  replying repository with `Re:` naming the one it answers.
+- A `dispatch` block in `sources.yaml`: the name other repositories
+  address this one by, the outbox path, and the inbox, which is either
+  `{repo, path}` in a router or `issues` so a public repository names
+  no private router.
+
+### Changed
+
+- `operating.md` reads the dispatch inbox every run and acts on each
+  item or queues it for the owner, then replies. A new rule forbids
+  writing another repository to get work done there, and says a
+  dispatch carries the owner's word only through its `Approval:` link.
+  `lockstep.md` counts a new dispatch item, beside a new queue item, as
+  a request rather than agreed truth.
+- `technoproj lockstep check` requires the dispatch block and the
+  outbox, and reads every item's header, numbering and fields. A
+  repository placed under 0.3.0 fails it until it runs `init` (which
+  places `dispatch.md`), adds the block, and syncs the shared rules;
+  `doc/LOCKSTEP-MIGRATION.md` step 7 says how.
 
 ### Fixed
 
