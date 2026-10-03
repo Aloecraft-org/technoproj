@@ -10,7 +10,7 @@ else in it. Moving plans out of `doc/` (step 4) is a second pull request.
 ## 1. Install and declare
 
 ```sh
-pip install "git+https://github.com/Aloecraft-org/technoproj@v0.3.0"
+pip install "git+https://github.com/Aloecraft-org/technoproj@v0.3.1"
 ```
 
 If the repository already has `.claude/rules/human-surfaces.md`, copy its

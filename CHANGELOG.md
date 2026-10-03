@@ -7,6 +7,32 @@ edit that file, then run `technoproj-changelog generate`.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.1] - unreleased
+
+`v0.3.1`
+
+Two fixes for a project that has not released yet, which 0.3.0
+shipped without: they sat on a branch while the tag was cut. Until
+they land, a first release cannot pass the shared preflight, and
+dirt-launcher pins the engine to a commit and its workflows to
+v0.3.0-dev.1.
+
+### Fixed
+
+- A project that has not released yet could not pass `validate`:
+  exactly one entry had to carry `latest: true`, and that entry had to
+  be released, so a first entry that was honestly `unreleased` failed
+  every gate, preflight and dev builds included. diluvium-lab and
+  dirt-launcher both hit it. Zero `latest` entries is now right until
+  the first entry is released, and exactly one after; `latest` exits
+  non-zero when there is none rather than raising.
+- A rehearsal dispatched with no tag was checked against `latest`,
+  where the preflight's own comment promised the newest entry: it
+  rehearsed the last release rather than the one in progress, and
+  before a first release it had nothing to check at all. It now uses
+  the new `technoproj-changelog newest`.
+
+
 ## [0.3.0] - 2026-10-02
 
 `v0.3.0`
