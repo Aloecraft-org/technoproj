@@ -29,6 +29,12 @@ owner decision already settles stops waiting on the owner.
   counts as answered when an inbox item has `Re:` naming it and an
   Approval link to owner text that settles it; the operator copies
   the link under Answer when it applies the item.
+- `lockstep.md` gains a References section. Every reference to a
+  queue item, dispatch item, ledger entry or roadmap iteration names its repository,
+  because ids repeat across repositories. Anything the owner reads
+  links the referenced line at a full commit sha and says whether
+  that is `main` or an open pull request's head, so an item that
+  exists only on a pull request is not looked for on `main`.
 
 
 ## [0.4.1] - 2026-10-03

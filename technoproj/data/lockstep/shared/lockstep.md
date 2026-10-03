@@ -38,6 +38,22 @@ are in human-surfaces.md.
 - Draft in `.claude/`. Promote to lockstep deliberately, and only the
   conclusion.
 
+## References
+
+An id is unique only inside its own repo: a queue item (Q-003), a
+dispatch item (D-017), a ledger entry (E-004) or a roadmap iteration
+(I2). An item may also exist only on an unmerged branch. So:
+
+- Every reference names the repo: `discofetch Q-003`, `ambassador I1`,
+  never a bare `Q-003` or `I1`, even for this repo's own items. This holds in lockstep,
+  logs, commit messages, pull requests and replies.
+- Anything the owner reads (a pull request, a reply, a report, a queue
+  item) links each reference to the line it names, at a full commit
+  sha: `https://github.com/<owner>/<repo>/blob/<full sha>/<path>#L<n>`.
+  The sha is `main`'s when the item is merged, and the text says
+  "on main". When the item is only on an open pull request, the sha is
+  that pull request's head, and the text says "on #N, not merged".
+
 ## Do not
 
 - Use `doc/` as a scratchpad.
