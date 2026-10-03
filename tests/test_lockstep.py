@@ -170,6 +170,22 @@ def test_a_routed_inbox_passes(tmp_path):
     assert L.gaps(tmp_path) == []
 
 
+def test_an_escalate_name_passes(tmp_path):
+    filled(tmp_path)
+    s = tmp_path / "doc/lockstep/sources.yaml"
+    s.write_text(s.read_text().replace(
+        "inbox: issues", "inbox: issues\n  escalate: answerer"))
+    assert L.gaps(tmp_path) == []
+
+
+def test_an_empty_escalate_is_a_gap(tmp_path):
+    filled(tmp_path)
+    s = tmp_path / "doc/lockstep/sources.yaml"
+    s.write_text(s.read_text().replace(
+        "inbox: issues", "inbox: issues\n  escalate: ''"))
+    assert any("dispatch.escalate" in g for g in L.gaps(tmp_path))
+
+
 def test_sources_without_dispatch_is_a_gap(tmp_path):
     filled(tmp_path)
     s = tmp_path / "doc/lockstep/sources.yaml"

@@ -323,6 +323,9 @@ def _sources_gaps(root, path):
     if inbox != DISPATCH_INBOX_ISSUES and not routed:
         found.append("%s dispatch.inbox must be '%s' or {repo, path}"
                      % (name, DISPATCH_INBOX_ISSUES))
+    if "escalate" in d and d["escalate"] is not None and not (
+            isinstance(d["escalate"], str) and d["escalate"].strip()):
+        found.append("%s dispatch.escalate must be a dispatch name" % name)
     return found
 
 

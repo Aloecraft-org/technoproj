@@ -14,3 +14,6 @@ dispatch:
   # Where asks for this repo arrive: {repo: owner/name, path: file} in
   # the router, or `issues` for issues labelled dispatch in this repo.
   inbox: null     # technoproj: fill in
+  # Optional: the dispatch name that receives a copy of each new queue
+  # question (operating.md step 7). Leave out to ask only the owner.
+  # escalate: name
