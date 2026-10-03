@@ -7,6 +7,37 @@ edit that file, then run `technoproj-changelog generate`.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.1] - unreleased (prerelease)
+
+`v0.4.1`
+
+Three fixes to the shared release workflows, found by moving aloelite
+onto them. None changes the contract a caller writes against.
+
+### Fixed
+
+- A rehearsal with no tag -- a dispatch with `publish` off, or a
+  caller's self-test push -- still failed in `release-preflight.yml`
+  after 0.4.0 fixed its gate. Rendering the notes called
+  `technoproj-changelog buildinfo` with an empty `--tag`, which it
+  refuses, and `render md` printed the whole changelog. The render
+  step now uses the entry the gate checked, `technoproj-changelog
+  newest`.
+- `release-publish.yml` handed every tag it released to the registry
+  workflow, `-dev.<n>` builds included. A dev build reaches no registry
+  (`ALIGNMENT.md` §7), and the tree a dev tag names still carries the
+  release's own version, so a registry workflow that builds it would
+  upload a final -- immutably, on PyPI. A dev tag is no longer handed
+  over. A registry workflow should still refuse one itself.
+- BUILDINFO.txt's `branch` line took the first branch containing the
+  commit. A released commit is on the default branch and on the
+  branch it was developed on, and `git branch -r` lists them
+  alphabetically, so it named a feature branch -- the bug
+  `ALIGNMENT.md` §5 records from aloeschema's v0.3.0, reintroduced in
+  the workflow written to end it. Preflight now prefers the default
+  branch among the candidates.
+
+
 ## [0.4.0] - 2026-10-03
 
 `v0.4.0`

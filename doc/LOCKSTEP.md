@@ -8,7 +8,7 @@ the private repository where an agent operates Aloecraft's commercial
 work, and is published here so every repository adopts it from one place.
 
 ```sh
-pip install "git+https://github.com/Aloecraft-org/technoproj@v0.4.0"
+pip install "git+https://github.com/Aloecraft-org/technoproj@v0.4.1"
 technoproj lockstep init --owner aloecraft   # place what is missing
 technoproj lockstep check                    # every gap, in fix order
 ```
