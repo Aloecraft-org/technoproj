@@ -188,12 +188,21 @@ jobs:
           # The branch, for BUILDINFO.txt (doc/ALIGNMENT.md §5). A tag push
           # carries none, so it is derived and what was found is recorded
           # rather than a guess.
+          #
+          # PREFER THE DEFAULT BRANCH, never the first one listed. A released
+          # commit is normally on the default branch AND on the branch it was
+          # developed on, and `git branch -r` lists them alphabetically, so a
+          # bare `head -1` names whichever sorts first -- for branches named
+          # `claude/...`, never `main`. ALIGNMENT.md §5; aloeschema's v0.3.0
+          # BUILDINFO.txt recorded a feature branch this way.
           BRANCH=""
           if [ -n "${IN_REF:-}" ] && git show-ref -q --verify "refs/remotes/origin/$IN_REF"; then
             BRANCH="$IN_REF"
           else
-            BRANCH=$(git branch -r --contains "$SHA" --format='%(refname:lstrip=3)' \
-                     | grep -vx HEAD | head -1 || true)
+            CANDIDATES=$(git branch -r --contains "$SHA" --format='%(refname:lstrip=3)' \
+                         | grep -vx HEAD || true)
+            BRANCH=$(printf '%s\n' "$CANDIDATES" | grep -xF "${DEFAULT_BRANCH:-}" \
+                     || printf '%s\n' "$CANDIDATES" | head -1)
           fi
 
           {
@@ -235,10 +244,14 @@ jobs:
           technoproj-changelog validate
           technoproj-changelog check
           technoproj-changelog consistency
-          # A rehearsal with no tag is checked against the newest entry, so
-          # the pipeline can be proved before a tag exists.
+          # A rehearsal with no tag is checked as the tag the tree would
+          # release -- `technoproj show`'s, which `consistency` above has just
+          # held to the newest entry -- so the pipeline can be proved before a
+          # tag exists. Not `technoproj-changelog latest`: that is the newest
+          # entry marked `latest`, the previous release while the next is in
+          # progress, and every version this run reported would be its.
           T="$TAG"
-          [ -n "$T" ] || T=$(technoproj-changelog latest)
+          [ -n "$T" ] || T=$(technoproj show | sed -n 's/^tag: *//p')
           if [ "$PUBLISH" = true ]; then
             technoproj-changelog release-check --tag "$T" --publish | tee -a "$GITHUB_OUTPUT"
           else
@@ -257,6 +270,14 @@ jobs:
         run: |
           set -eu
           mkdir -p release_meta
+          # A rehearsal with no tag renders the entry the gate above checked
+          # it against. Without this, `render md` printed the whole changelog
+          # and `buildinfo` refused an empty --tag, so a tagless rehearsal --
+          # a dispatch with publish off, or a caller's self-test push --
+          # failed here.
+          if [ -z "$TAG" ] && [ -f CHANGELOG.yaml ]; then
+            TAG=$(technoproj show | sed -n 's/^tag: *//p')
+          fi
           : > release_meta/facts.txt
           if [ ! -f CHANGELOG.yaml ]; then
             printf '%s\n' "Release $TAG." > release_meta/notes.md

@@ -60,7 +60,7 @@ One process, in every repository:
 technoproj release plan            # what a release of this tree would be
 technoproj release preflight       # every gate CI runs, run here first
 technoproj release doctor          # what is missing, and which route is open
-technoproj release cut --tag v0.3.0 --publish --yes
+technoproj release cut --tag v0.3.1 --publish --yes
 ```
 
 The halves of a release that were never meant to differ between projects are
@@ -71,11 +71,11 @@ jobs:
 
 ```yaml
   preflight:
-    uses: Aloecraft-org/technoproj/.github/workflows/release-preflight.yml@v0.3.0
+    uses: Aloecraft-org/technoproj/.github/workflows/release-preflight.yml@v0.3.1
   publish:
     permissions:
       contents: write        # the caller grants it; a called workflow cannot
-    uses: Aloecraft-org/technoproj/.github/workflows/release-publish.yml@v0.3.0
+    uses: Aloecraft-org/technoproj/.github/workflows/release-publish.yml@v0.3.1
 ```
 
 There is one pin to keep, not two: the shared workflows install the engine
