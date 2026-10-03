@@ -18,6 +18,9 @@ which its authority sorts as approve_first, or ask the owner to carry
 the message. Each repository now has an outbox, and a router delivers
 what is in it.
 
+It also carries the two first-release fixes 0.3.0 shipped without,
+which were never cut as 0.3.1 on their own.
+
 ### Added
 
 - `doc/lockstep/dispatch.md`, an append-only outbox. An item is
@@ -43,6 +46,21 @@ what is in it.
   repository placed under 0.3.0 fails it until it runs `init` (which
   places `dispatch.md`), adds the block, and syncs the shared rules;
   `doc/LOCKSTEP-MIGRATION.md` step 7 says how.
+
+### Fixed
+
+- A project that has not released yet could not pass `validate`:
+  exactly one entry had to carry `latest: true`, and that entry had to
+  be released, so a first entry that was honestly `unreleased` failed
+  every gate, preflight and dev builds included. diluvium-lab and
+  dirt-launcher both hit it. Zero `latest` entries is now right until
+  the first entry is released, and exactly one after; `latest` exits
+  non-zero when there is none rather than raising.
+- A rehearsal dispatched with no tag was checked against `latest`,
+  where the preflight's own comment promised the newest entry: it
+  rehearsed the last release rather than the one in progress, and
+  before a first release it had nothing to check at all. It now uses
+  the new `technoproj-changelog newest`.
 
 
 ## [0.3.0] - 2026-10-02
