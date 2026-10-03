@@ -16,6 +16,15 @@ and dirt-launcher onto them. One changes the contract a caller writes
 against: a caller from another repository now passes `technoproj:`
 to the preflight job, equal to its `uses:` pin.
 
+### Changed
+
+- `lockstep.md` asks every pull request that changes a file in
+  `doc/lockstep/` to link each changed file at the pull request's head
+  commit, and every self_merge commit to one to be linked the same way
+  in the run's reply. A link to `main` shows whatever lands next; a
+  link at the commit shows the owner the revision they are merging.
+  Each repository picks it up with `technoproj lockstep sync`.
+
 ### Fixed
 
 - A rehearsal with no tag -- a dispatch with `publish` off, or a

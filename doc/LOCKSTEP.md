@@ -85,6 +85,11 @@ length of a batch).
 | `.claude/CLAUDE.md`, `.claude/rules/`, `authority.yaml`, `goal.md` | its own, titled `PROPOSAL: ...`, on the run branch plus `-proposal` |
 | anything else | one per run, on `run/YYYY-MM-DD-slug` or the branch the session assigns |
 
+A pull request that changes a file in `doc/lockstep/` links each changed
+file at its head commit (`blob/<full sha>/<path>`), so the owner reads the
+revision they would merge rather than whatever `main` holds. The rule text
+is in `.claude/rules/lockstep.md`.
+
 CODEOWNERS names the owner on `doc/lockstep/`, `.claude/CLAUDE.md`,
 `.claude/rules/` and itself.
 
