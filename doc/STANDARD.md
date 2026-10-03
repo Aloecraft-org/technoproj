@@ -27,7 +27,7 @@ diffed against upstream.
 **The one command to start from:**
 
 ```sh
-pip install "git+https://github.com/Aloecraft-org/technoproj@v0.3.0"
+pip install "git+https://github.com/Aloecraft-org/technoproj@v0.4.0"
 technoproj release doctor
 ```
 
@@ -299,7 +299,7 @@ concurrency:
 
 jobs:
   preflight:
-    uses: Aloecraft-org/technoproj/.github/workflows/release-preflight.yml@v0.3.0
+    uses: Aloecraft-org/technoproj/.github/workflows/release-preflight.yml@v0.4.0
     with:
       ref: ${{ inputs.ref }}
       tag: ${{ inputs.tag }}
@@ -325,7 +325,7 @@ jobs:
     permissions:
       contents: write        # the caller grants this; a called workflow cannot
       # + `actions: write` if this repository has a registry leg -- see below
-    uses: Aloecraft-org/technoproj/.github/workflows/release-publish.yml@v0.3.0
+    uses: Aloecraft-org/technoproj/.github/workflows/release-publish.yml@v0.4.0
     with:
       tag:        ${{ needs.preflight.outputs.tag }}
       sha:        ${{ needs.preflight.outputs.sha }}
@@ -347,7 +347,7 @@ something else can ship assets from a different tree than the notes.
 cannot raise its own permissions — the caller grants them. Without this line
 the run dies at the upload, twenty minutes in, with a 403.
 
-**Pin `@v0.3.0`.** A release pipeline that tracks `main` changes when nobody
+**Pin `@v0.4.0`.** A release pipeline that tracks `main` changes when nobody
 touched it. There is only one pin to keep: the shared workflows install the
 engine from the very commit they were themselves read from, so the tool and
 the workflow cannot end up different versions.
@@ -473,7 +473,7 @@ release hands the tag over explicitly. Three things together, and
     permissions:
       contents: write
       actions: write                      # to dispatch the registry workflow
-    uses: Aloecraft-org/technoproj/.github/workflows/release-publish.yml@v0.3.0
+    uses: Aloecraft-org/technoproj/.github/workflows/release-publish.yml@v0.4.0
     with:
       # ...as above...
       registry-workflow: publish.yml
@@ -670,7 +670,7 @@ never ships that.
 gaps marked. In order:
 
 1. **Install and pin.**
-   `pip install "git+https://github.com/Aloecraft-org/technoproj@v0.3.0"`
+   `pip install "git+https://github.com/Aloecraft-org/technoproj@v0.4.0"`
 2. **Declare `TECHNO_CHANGELOG`** in `.technoproj`, run `generate`, diff
    against the committed files, then delete `script/changelog.py`.
 3. **`technoproj sync`** to place `script/version.mk`; commit it.
