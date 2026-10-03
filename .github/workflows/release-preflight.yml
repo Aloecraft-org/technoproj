@@ -100,25 +100,27 @@ jobs:
         with:
           python-version: ${{ inputs.python-version }}
 
-      # `job_workflow_sha` is the commit THIS file was read from. Installing
-      # the engine from it means the tool and the workflow are one version
-      # by construction: a caller pins `@v0.3.1` once and cannot end up
-      # running v0.3.0's workflow against some other release's engine, which
-      # is the drift a second pin would reintroduce.
+      # The engine is installed from, in order: the caller's `technoproj`
+      # input, `job_workflow_sha` (the commit THIS file was read from), and
+      # -- only in technoproj itself -- `github.sha`.
       #
-      # It is EMPTY when the caller reaches this file by local path
-      # (`uses: ./.github/workflows/release-preflight.yml`), which is how
-      # technoproj calls its own -- GitHub populates it only for a reusable
-      # workflow from another repository. `github.sha` is the right answer
-      # in exactly that case: the workflow and the engine are then the same
-      # commit of the same repository anyway. Without the fallback the
-      # install line is `...@` with nothing after it, which pip rejects.
+      # `job_workflow_sha` was meant to make one pin enough, but it is EMPTY
+      # in practice: technoproj reaches this file by local path, and
+      # dirt-launcher's call from another repository at @v0.4.0 (run
+      # 37093587946) saw it empty too. Falling back to `github.sha` there
+      # installed technoproj at a dirt-launcher commit. So `github.sha` is
+      # used only where it names a technoproj commit, and every other
+      # caller passes `technoproj:` equal to its `uses:` pin, which
+      # `technoproj release check-workflow` requires.
       - name: Install technoproj
         run: |
           set -eu
-          PIN='${{ inputs.technoproj || github.job_workflow_sha || github.sha }}'
+          PIN='${{ inputs.technoproj || github.job_workflow_sha }}'
+          if [ -z "$PIN" ] && [ "$GITHUB_REPOSITORY" = "Aloecraft-org/technoproj" ]; then
+            PIN="$GITHUB_SHA"
+          fi
           if [ -z "$PIN" ]; then
-            echo "::error::no commit to install technoproj from: neither the technoproj input, job_workflow_sha nor github.sha is set."
+            echo "::error::no technoproj to install: pass \`technoproj:\` to this workflow, set to the same tag as its \`uses:\` pin (job_workflow_sha is empty here)."
             exit 1
           fi
           pip install --quiet "git+https://github.com/Aloecraft-org/technoproj@${PIN}"

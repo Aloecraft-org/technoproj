@@ -72,15 +72,18 @@ jobs:
 ```yaml
   preflight:
     uses: Aloecraft-org/technoproj/.github/workflows/release-preflight.yml@v0.4.1
+    with:
+      technoproj: v0.4.1     # the engine: the same tag as the pin above
   publish:
     permissions:
       contents: write        # the caller grants it; a called workflow cannot
     uses: Aloecraft-org/technoproj/.github/workflows/release-publish.yml@v0.4.1
 ```
 
-There is one pin to keep, not two: the shared workflows install the engine
-from the commit they were themselves read from, so the tool and the workflow
-cannot end up different versions.
+The tag appears twice on the preflight job, as its `uses:` pin and as the
+`technoproj:` engine it installs, because GitHub does not tell a workflow
+called from another repository which commit it came from.
+`technoproj release check-workflow` fails when the two differ.
 
 **The workflow creates the tag; nobody pushes one.** That is the whole of the
 permissions story. `contents: write` on one job is a permission the

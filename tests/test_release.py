@@ -38,6 +38,8 @@ concurrency:
 jobs:
   preflight:
     uses: Aloecraft-org/technoproj/.github/workflows/release-preflight.yml@v0.3.0
+    with:
+      technoproj: v0.3.0
   build:
     needs: preflight
     runs-on: ubuntu-latest
@@ -182,6 +184,22 @@ def test_a_publish_job_without_contents_write_fails(repo):
     assert "contents: write" in r.stderr
 
 
+def test_a_preflight_without_the_engine_pin_fails(repo):
+    # job_workflow_sha is empty for a caller in another repository, so the
+    # engine falls to nothing unless the caller names it.
+    edit(repo, "    with:\n      technoproj: v0.3.0\n", "")
+    r = cli("release", "check-workflow", root=repo)
+    assert r.returncode == 1
+    assert "technoproj: v0.3.0" in r.stderr
+
+
+def test_an_engine_pin_that_differs_from_the_uses_pin_fails(repo):
+    edit(repo, "      technoproj: v0.3.0\n", "      technoproj: v0.2.0\n")
+    r = cli("release", "check-workflow", root=repo)
+    assert r.returncode == 1
+    assert "same tag" in r.stderr
+
+
 def test_an_unpinned_shared_workflow_fails(repo):
     edit(repo, "release-preflight.yml@v0.3.0", "release-preflight.yml@main")
     r = cli("release", "check-workflow", root=repo)
@@ -192,7 +210,8 @@ def test_an_unpinned_shared_workflow_fails(repo):
 def test_reimplementing_preflight_instead_of_calling_it_fails(repo):
     edit(repo,
          "  preflight:\n    uses: Aloecraft-org/technoproj"
-         "/.github/workflows/release-preflight.yml@v0.3.0\n",
+         "/.github/workflows/release-preflight.yml@v0.3.0\n"
+         "    with:\n      technoproj: v0.3.0\n",
          "  preflight:\n    runs-on: ubuntu-latest\n    steps: [{run: \"true\"}]\n")
     r = cli("release", "check-workflow", root=repo)
     assert r.returncode == 1

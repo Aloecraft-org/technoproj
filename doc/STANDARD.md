@@ -304,6 +304,7 @@ jobs:
       ref: ${{ inputs.ref }}
       tag: ${{ inputs.tag }}
       publish: ${{ inputs.publish || false }}
+      technoproj: v0.4.1     # the engine: the same tag as the `uses:` pin
 
   build:
     needs: preflight
@@ -348,9 +349,11 @@ cannot raise its own permissions — the caller grants them. Without this line
 the run dies at the upload, twenty minutes in, with a 403.
 
 **Pin `@v0.4.1`.** A release pipeline that tracks `main` changes when nobody
-touched it. There is only one pin to keep: the shared workflows install the
-engine from the very commit they were themselves read from, so the tool and
-the workflow cannot end up different versions.
+touched it. Name the same tag twice: in `uses:`, and as `technoproj:` on the
+preflight job, which is the engine it installs. GitHub does not tell a
+workflow called from another repository which commit it was read from, so
+the engine cannot be derived from the `uses:` pin, and
+`technoproj release check-workflow` fails when the two differ.
 
 ## The `TECHNO_RELEASE` declaration
 
