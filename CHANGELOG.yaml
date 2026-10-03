@@ -47,6 +47,14 @@ releases:
         the same tag as its `uses:` pin, `technoproj release check-workflow`
         fails a caller that does not, and the install step says so instead
         of installing something else.
+    changed:
+      - |
+        `lockstep.md` asks every pull request that changes a file in
+        `doc/lockstep/` to link each changed file at the pull request's head
+        commit, and every self_merge commit to one to be linked the same way
+        in the run's reply. A link to `main` shows whatever lands next; a
+        link at the commit shows the owner the revision they are merging.
+        Each repository picks it up with `technoproj lockstep sync`.
   - version: "0.4.0"
     tag: v0.4.0
     date: "2026-10-03"

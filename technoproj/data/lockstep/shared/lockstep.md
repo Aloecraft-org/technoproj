@@ -25,6 +25,12 @@ are in human-surfaces.md.
   exceptions are a new queue item and a new dispatch item under
   self_merge in authority.yaml: each is a request, to the owner or to
   another repo, not agreed truth.
+- A pull request that changes a file in `doc/lockstep/` links each
+  changed file at the pull request's head commit, as
+  `https://github.com/<owner>/<repo>/blob/<full sha>/<path>`, so the
+  owner reads the exact revision they would merge. A push that moves the
+  head updates the links. A self_merge commit to such a file is linked
+  the same way, at that commit, in the run's reply.
 - If work would make a lockstep statement false, the same pull request
   updates lockstep. Functional files and lockstep never drift.
 - If lockstep looks wrong or stale, stop and propose the correction. Do
