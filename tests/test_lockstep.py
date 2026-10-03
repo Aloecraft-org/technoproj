@@ -6,6 +6,18 @@ import pytest
 from technoproj import lockstep as L
 
 
+DISPATCH_BLOCK = ("dispatch:\n  name: example\n"
+                  "  outbox: doc/lockstep/dispatch.md\n  inbox: issues\n")
+
+ITEM = """
+## D-001 To: other. Refund page and price
+Why: the owner answered Q-010.
+Ask: add a refund page.
+Approval: https://example.com/pull/22
+Re: none
+"""
+
+
 def quiet(_):
     pass
 
@@ -20,7 +32,7 @@ def filled(root, owner="aloecraft"):
         "owner: null   # technoproj: fill in", "owner: Example"))
     s = root / "doc/lockstep/sources.yaml"
     s.write_text("product: Example\nfacts:\n  repo: o/r\n  path: FACTS.yaml\n"
-                 "docs: []\n")
+                 "docs: []\n" + DISPATCH_BLOCK)
     (root / "doc/lockstep/goal.md").write_text("# Goal\n\nThe number: 1\n")
     return root
 
@@ -141,3 +153,57 @@ def test_the_cli_round_trip(tmp_path, monkeypatch, capsys):
     assert cli.main(["lockstep", "check"]) == 1
     assert "not filled in yet" in capsys.readouterr().err
     assert cli.main(["lockstep", "sync"]) == 0
+
+
+def test_a_well_formed_dispatch_passes(tmp_path):
+    filled(tmp_path)
+    d = tmp_path / "doc/lockstep/dispatch.md"
+    d.write_text(d.read_text() + ITEM + ITEM.replace("D-001", "D-002"))
+    assert L.gaps(tmp_path) == []
+
+
+def test_a_routed_inbox_passes(tmp_path):
+    filled(tmp_path)
+    s = tmp_path / "doc/lockstep/sources.yaml"
+    s.write_text(s.read_text().replace(
+        "inbox: issues", "inbox: {repo: o/router, path: dispatch/example.md}"))
+    assert L.gaps(tmp_path) == []
+
+
+def test_sources_without_dispatch_is_a_gap(tmp_path):
+    filled(tmp_path)
+    s = tmp_path / "doc/lockstep/sources.yaml"
+    s.write_text(s.read_text().replace(DISPATCH_BLOCK, ""))
+    assert any("has no dispatch block" in g for g in L.gaps(tmp_path))
+
+
+def test_a_bad_inbox_is_a_gap(tmp_path):
+    filled(tmp_path)
+    s = tmp_path / "doc/lockstep/sources.yaml"
+    s.write_text(s.read_text().replace("inbox: issues", "inbox: {repo: o/r}"))
+    assert any("dispatch.inbox must be" in g for g in L.gaps(tmp_path))
+
+
+def test_a_missing_outbox_is_a_gap(tmp_path):
+    filled(tmp_path)
+    (tmp_path / "doc/lockstep/dispatch.md").unlink()
+    found = L.gaps(tmp_path)
+    assert "doc/lockstep/dispatch.md is missing -- run 'technoproj lockstep init'" in found
+    assert any("which does not exist" in g for g in found)
+
+
+def test_a_malformed_dispatch_item_is_a_gap(tmp_path):
+    filled(tmp_path)
+    d = tmp_path / "doc/lockstep/dispatch.md"
+    d.write_text(d.read_text() + ITEM.replace("To: other.", "for other:")
+                 + ITEM.replace("Approval: https://example.com/pull/22\n", ""))
+    found = L.gaps(tmp_path)
+    assert any("malformed item header" in g for g in found)
+    assert any("D-001 is missing Approval" in g for g in found)
+
+
+def test_dispatch_numbers_only_go_up(tmp_path):
+    filled(tmp_path)
+    d = tmp_path / "doc/lockstep/dispatch.md"
+    d.write_text(d.read_text() + ITEM.replace("D-001", "D-002") + ITEM)
+    assert any("D-001 is out of order" in g for g in L.gaps(tmp_path))

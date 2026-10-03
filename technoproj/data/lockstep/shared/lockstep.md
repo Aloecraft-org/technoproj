@@ -21,9 +21,10 @@ are in human-surfaces.md.
 - Lockstep wins. If notes in `.claude/` disagree with it, the notes are
   wrong; fix them.
 - A change to lockstep is true only once the human has merged it.
-  Propose it as its own commit with a one-line reason. The one
-  exception is a new queue item under self_merge in authority.yaml: it
-  is a request to the owner, not agreed truth.
+  Propose it as its own commit with a one-line reason. The two
+  exceptions are a new queue item and a new dispatch item under
+  self_merge in authority.yaml: each is a request, to the owner or to
+  another repo, not agreed truth.
 - If work would make a lockstep statement false, the same pull request
   updates lockstep. Functional files and lockstep never drift.
 - If lockstep looks wrong or stale, stop and propose the correction. Do

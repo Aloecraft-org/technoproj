@@ -9,3 +9,4 @@ true once the owner merges it. One fact, one place, one screen per file.
 - roadmap.md      iterations and their gates
 - queue.md        work assigned to the owner
 - ledger.md       experiments
+- dispatch.md     asks this repo sends to other repos

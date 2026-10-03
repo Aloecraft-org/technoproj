@@ -77,3 +77,9 @@ technoproj lockstep check
 Add `technoproj lockstep check` to CI. To take a new version of the shared
 rules, bump the pin, run `technoproj lockstep sync`, and open the result as
 a PROPOSAL pull request.
+
+A repository placed before dispatch existed runs `init` again to get
+`doc/lockstep/dispatch.md`, then adds the `dispatch` block to
+`sources.yaml` and the `dispatch.md` entry to the self_merge lane, as
+the scaffold has them. `check` names the file and the block until both
+are there.

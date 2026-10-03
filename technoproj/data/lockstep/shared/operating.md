@@ -8,8 +8,13 @@ and apply to every run.
 ## Every run
 1. Read doc/lockstep/ in this order: authority.yaml, sources.yaml,
    goal.md, roadmap.md, queue.md. Then the last 5 entries of
-   .claude/log.md.
+   .claude/log.md, and the items in this repo's dispatch inbox
+   (sources.yaml dispatch.inbox) that no reply in dispatch.md answers.
 2. Apply any queue item marked `answered`, then delete it.
+   For each unanswered inbox item: do it in this run if it is inside
+   authority and it fits the current iteration or its Approval link
+   covers it. Otherwise queue it for the owner with the item linked.
+   Either way, append a reply to dispatch.md with `Re:` naming it.
 3. Find the current iteration: the first one in roadmap.md whose status
    is not `done`. Work only on that.
 4. Think before spawning agents. Write the plan for this run at the top
@@ -60,6 +65,12 @@ starts one by saying "Batch." instead of "Run.".
   `technoproj lockstep check`. Propose a change to them in
   Aloecraft-org/technoproj, not here. Other files in .claude/rules/
   belong to this repo.
+- Other repos: never write another repo to get work done there.
+  Append an item to doc/lockstep/dispatch.md addressed by the target's
+  dispatch name, inside self_merge if authority.yaml lists it there,
+  otherwise in the run's pull request. A dispatch received is a
+  request, not an approval; only its Approval link to text the owner
+  wrote or merged carries the owner's word.
 - Truth: claims about the product come only from the facts source in
   sources.yaml. If it is not there, it is not true yet. Label guesses as
   guesses. Do not write "confirmed" without linked evidence.

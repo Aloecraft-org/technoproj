@@ -15,6 +15,10 @@ and checks it.
     technoproj lockstep check                  every gap, in the order to
                                                fix it; exit 1 if any (CI)
 
+The scaffold includes doc/lockstep/dispatch.md, the outbox through which
+one repository asks another for work instead of writing to it; `check`
+reads its items and the dispatch block in sources.yaml.
+
 Two kinds of file, and they are treated oppositely. SHARED rules are the
 same in every repository, so they are written by `sync` and must match
 byte for byte; a repository changes them upstream, here. SCAFFOLD files
@@ -23,6 +27,7 @@ nothing here ever overwrites them; `check` only looks at their shape.
 """
 import fnmatch
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -60,6 +65,7 @@ SCAFFOLD = {
     "doc/lockstep/roadmap.md": "scaffold/doc/lockstep/roadmap.md",
     "doc/lockstep/queue.md": "scaffold/doc/lockstep/queue.md",
     "doc/lockstep/ledger.md": "scaffold/doc/lockstep/ledger.md",
+    "doc/lockstep/dispatch.md": "scaffold/doc/lockstep/dispatch.md",
     ".github/CODEOWNERS": "scaffold/github/CODEOWNERS",
     # GitHub does not read this from the repository; the owner imports it
     # in Settings > Rules. It is placed so the import has a source.
@@ -91,6 +97,14 @@ NEVER_SELF_MERGED = (
 OWNED = ("/doc/lockstep/", "/.claude/CLAUDE.md", "/.claude/rules/")
 
 ROADMAP_STATUSES = ("todo", "active", "review", "done")
+
+# dispatch.md: one item per asked-for piece of work in another repository.
+# Routers parse these, so the header and the fields are fixed, not
+# conventional. `inbox: issues` is how a public repository receives asks
+# without naming a private router in its sources.
+DISPATCH_HEADER = re.compile(r"^## D-(\d+) To: (\S+?)\. \S.*$")
+DISPATCH_FIELDS = ("Why", "Ask", "Approval", "Re")
+DISPATCH_INBOX_ISSUES = "issues"
 
 
 class LockstepError(Exception):
@@ -199,6 +213,8 @@ def gaps(root):
 
     found += _authority_gaps(root / "doc/lockstep/authority.yaml")
     found += _roadmap_gaps(root / "doc/lockstep/roadmap.md")
+    found += _sources_gaps(root, root / "doc/lockstep/sources.yaml")
+    found += _dispatch_gaps(root / "doc/lockstep/dispatch.md")
     found += _codeowners_gaps(root / ".github/CODEOWNERS")
     return found
 
@@ -276,6 +292,68 @@ def _roadmap_gaps(path):
         return ["doc/lockstep/roadmap.md has unknown status%s: %s"
                 % ("" if len(bad) == 1 else "es", ", ".join(bad))]
     return []
+
+
+def _sources_gaps(root, path):
+    if not path.is_file():
+        return []
+    name = "doc/lockstep/sources.yaml"
+    try:
+        doc = yaml.safe_load(path.read_text())
+    except yaml.YAMLError as e:
+        return ["%s does not parse (%s)" % (name, e)]
+    if not isinstance(doc, dict):
+        return ["%s is not a mapping" % name]
+    d = doc.get("dispatch")
+    if not isinstance(d, dict):
+        return ["%s has no dispatch block (name, outbox, inbox)" % name]
+    found = []
+    if not (isinstance(d.get("name"), str) and d["name"].strip()):
+        found.append("%s dispatch.name is not set" % name)
+    outbox = d.get("outbox")
+    if not (isinstance(outbox, str) and outbox):
+        found.append("%s dispatch.outbox is not set" % name)
+    elif not (Path(root) / outbox).is_file():
+        found.append("%s dispatch.outbox names %s, which does not exist"
+                     % (name, outbox))
+    inbox = d.get("inbox")
+    routed = (isinstance(inbox, dict)
+              and all(isinstance(inbox.get(k), str) and inbox[k]
+                      for k in ("repo", "path")))
+    if inbox != DISPATCH_INBOX_ISSUES and not routed:
+        found.append("%s dispatch.inbox must be '%s' or {repo, path}"
+                     % (name, DISPATCH_INBOX_ISSUES))
+    return found
+
+
+def _dispatch_gaps(path):
+    if not path.is_file():
+        return []
+    name = "doc/lockstep/dispatch.md"
+    items = []                           # [header line, set of fields seen]
+    for line in path.read_text().splitlines():
+        if line.startswith("## "):
+            items.append([line.rstrip(), set()])
+        elif items and ":" in line:
+            items[-1][1].add(line.split(":", 1)[0].strip())
+    found, last = [], 0
+    for header, fields in items:
+        m = DISPATCH_HEADER.match(header)
+        if not m:
+            found.append("%s has a malformed item header: '%s' (want "
+                         "'## D-001 To: name. Title')" % (name, header))
+            continue
+        n = int(m.group(1))
+        if n <= last:
+            found.append("%s D-%s is out of order or repeated -- items "
+                         "are appended with the next number"
+                         % (name, m.group(1)))
+        last = max(last, n)
+        missing = [f for f in DISPATCH_FIELDS if f not in fields]
+        if missing:
+            found.append("%s D-%s is missing %s"
+                         % (name, m.group(1), ", ".join(missing)))
+    return found
 
 
 def _codeowners_gaps(path):
