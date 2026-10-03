@@ -4,8 +4,10 @@ repo: Aloecraft-org/technoproj
 releases:
   - version: "0.4.1"
     tag: v0.4.1
-    status: unreleased
-    stable: false
+    date: "2026-10-03"
+    status: released
+    stable: true
+    latest: true
     mirror: false
     summary: |
       Four fixes to the shared release workflows, found by moving aloelite
@@ -60,7 +62,6 @@ releases:
     date: "2026-10-03"
     status: released
     stable: true
-    latest: true
     mirror: false
     summary: |
       Repositories that run the lockstep layout can now ask each other for
