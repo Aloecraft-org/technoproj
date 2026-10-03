@@ -7,6 +7,30 @@ edit that file, then run `technoproj-changelog generate`.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] - unreleased
+
+`v0.5.0`
+
+A question an operator queues for its owner can now also reach a
+repository the owner trusts to answer it, so a question an earlier
+owner decision already settles stops waiting on the owner.
+
+### Added
+
+- An optional `escalate` in the `dispatch` block of `sources.yaml`:
+  the dispatch name that receives a copy of each new queue question.
+  `technoproj lockstep check` accepts it unset or as a name.
+
+### Changed
+
+- `operating.md` step 7: with `dispatch.escalate` set, queueing a
+  question for the owner also appends a dispatch to that name asking
+  the same question and linking the queue item. Step 2: a queue item
+  counts as answered when an inbox item has `Re:` naming it and an
+  Approval link to owner text that settles it; the operator copies
+  the link under Answer when it applies the item.
+
+
 ## [0.4.1] - 2026-10-03
 
 `v0.4.1`

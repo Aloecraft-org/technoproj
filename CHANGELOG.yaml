@@ -2,6 +2,29 @@ schema: 1
 repo: Aloecraft-org/technoproj
 
 releases:
+  - version: "0.5.0"
+    tag: v0.5.0
+    date: null
+    status: unreleased
+    stable: true
+    mirror: false
+    summary: |
+      A question an operator queues for its owner can now also reach a
+      repository the owner trusts to answer it, so a question an earlier
+      owner decision already settles stops waiting on the owner.
+    added:
+      - |
+        An optional `escalate` in the `dispatch` block of `sources.yaml`:
+        the dispatch name that receives a copy of each new queue question.
+        `technoproj lockstep check` accepts it unset or as a name.
+    changed:
+      - |
+        `operating.md` step 7: with `dispatch.escalate` set, queueing a
+        question for the owner also appends a dispatch to that name asking
+        the same question and linking the queue item. Step 2: a queue item
+        counts as answered when an inbox item has `Re:` naming it and an
+        Approval link to owner text that settles it; the operator copies
+        the link under Answer when it applies the item.
   - version: "0.4.1"
     tag: v0.4.1
     date: "2026-10-03"

@@ -10,7 +10,10 @@ and apply to every run.
    goal.md, roadmap.md, queue.md. Then the last 5 entries of
    .claude/log.md, and the items in this repo's dispatch inbox
    (sources.yaml dispatch.inbox) that no reply in dispatch.md answers.
-2. Apply any queue item marked `answered`, then delete it.
+2. Apply any queue item marked `answered`, then delete it. A queue
+   item also counts as answered when an inbox item has `Re:` naming it
+   and an Approval link to text the owner wrote or merged that settles
+   it; copy the link under Answer when you apply it.
    For each unanswered inbox item: do it in this run if it is inside
    authority and it fits the current iteration or its Approval link
    covers it. Otherwise queue it for the owner with the item linked.
@@ -27,7 +30,10 @@ and apply to every run.
 6. Drafts, analysis and working notes go in .claude/. Promote to
    doc/lockstep/ only what the owner needs to see or agree to.
 7. If you need the owner, add a queue item with the artifact already
-   prepared. Never work around a missing approval.
+   prepared. If sources.yaml names dispatch.escalate, also append a
+   dispatch to that name asking the same question and linking the
+   queue item, so a question the owner has already settled can be
+   answered without the owner. Never work around a missing approval.
 8. Finish the log entry. Open a pull request for anything outside
    self_merge, then stop.
 

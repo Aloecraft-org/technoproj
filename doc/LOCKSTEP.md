@@ -118,7 +118,14 @@ dispatch:                            # in sources.yaml
   name: example                      # what other repositories write after To:
   outbox: doc/lockstep/dispatch.md
   inbox: {repo: owner/router, path: dispatch/example.md}   # or: issues
+  escalate: answerer                 # optional: who else sees a queued question
 ```
+
+With `escalate` set, a question the operator queues for the owner also
+goes out as a dispatch to that name. A repository the owner trusts to
+answer what an earlier owner decision already settles replies with an
+`Approval:` link to that decision, and the asking repository applies
+its queue item as answered.
 
 `check` requires the block and reads every item's header and fields; the
 item format is in the scaffold's `dispatch.md`.
