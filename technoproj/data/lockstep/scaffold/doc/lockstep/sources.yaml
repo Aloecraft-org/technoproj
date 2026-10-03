@@ -6,3 +6,11 @@ facts:            # single source of truth for product claims
   path: null
 
 docs: []
+
+# How this repo exchanges asks with other repos (dispatch.md).
+dispatch:
+  name: null      # technoproj: fill in the name other repos address this repo by
+  outbox: doc/lockstep/dispatch.md
+  # Where asks for this repo arrive: {repo: owner/name, path: file} in
+  # the router, or `issues` for issues labelled dispatch in this repo.
+  inbox: null     # technoproj: fill in

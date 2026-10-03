@@ -46,6 +46,7 @@ doc/lockstep/goal.md               the one number
 doc/lockstep/roadmap.md            iterations and their gates
 doc/lockstep/queue.md              work assigned to the owner
 doc/lockstep/ledger.md             experiments
+doc/lockstep/dispatch.md           asks this repo sends to other repos
 .github/CODEOWNERS                 the owner reviews lockstep and rules
 .github/rulesets/main.json         import source for the main-branch ruleset
 ```
@@ -67,7 +68,7 @@ reports any file still carrying that marker or `@OWNER`.
 
 The **self_merge lane** is the one place the agent commits to `main`
 without a pull request: its own notes and log under `.claude/`, and a new
-item appended to `queue.md`. `.claude/CLAUDE.md` and `.claude/rules/` are
+item appended to `queue.md` or `dispatch.md`. `.claude/CLAUDE.md` and `.claude/rules/` are
 excepted, every commit starts with `self-merge:`, and the run's log entry
 names it. `check` fails if the lane reaches `CLAUDE.md`, a shared rule,
 `authority.yaml`, `goal.md` or `roadmap.md`, because the agent cannot
@@ -96,6 +97,27 @@ the owner with the artifact already prepared, and opens pull requests.
 Only the owner marks an iteration `done`. The steps are in
 `.claude/rules/operating.md`.
 
+## Dispatch
+
+No operator writes another repository to get work done there. It
+appends an item to its own `dispatch.md`, addressed by the target's
+dispatch name. A router, itself a repository running this layout, reads
+every outbox and copies each item to the target's inbox. The target's
+next run does the item or queues it for its owner, then appends a reply
+to its own `dispatch.md`. Nothing in the chain writes outside its own
+repository, and an item carries the owner's word only through its
+`Approval:` link.
+
+```yaml
+dispatch:                            # in sources.yaml
+  name: example                      # what other repositories write after To:
+  outbox: doc/lockstep/dispatch.md
+  inbox: {repo: owner/router, path: dispatch/example.md}   # or: issues
+```
+
+`check` requires the block and reads every item's header and fields; the
+item format is in the scaffold's `dispatch.md`.
+
 ## Public repositories
 
 In a public repository all of this is public, `.claude/log.md` and
@@ -103,6 +125,9 @@ In a public repository all of this is public, `.claude/log.md` and
 the owner is trying to do and what they have not done yet. A repository
 whose goal or notes should not be read by everyone runs the layout in a
 private repository and points `sources.yaml` at the public one.
+A public repository sets `inbox: issues`, so its sources name no
+private router; asks reach it as issues labelled `dispatch`, opened
+from the owner's account.
 
 ## The declaration
 

@@ -7,6 +7,8 @@ tiers:
     - open pull requests in this repo
     - commit to main without a pull request when every change is inside self_merge
     - read repos and URLs listed in sources.yaml
+    - read this repo's dispatch inbox (sources.yaml dispatch.inbox)
+    - append a dispatch to another repo instead of writing to it
     - spawn subagents within limits
     - in a batch, branch a step from an earlier unmerged step of the
       same batch (operating.md, Batches)
@@ -33,6 +35,7 @@ self_merge:
   paths:
     - .claude/**
     - doc/lockstep/queue.md   # new items only, see conditions
+    - doc/lockstep/dispatch.md   # new items only, see conditions
   except:
     - .claude/CLAUDE.md
     - .claude/rules/**
@@ -42,6 +45,8 @@ self_merge:
     - doc/lockstep/queue.md takes only a new item appended at the end,
       in state open; editing, applying or deleting an item goes through
       a pull request
+    - doc/lockstep/dispatch.md takes only a new item appended at the end;
+      past items are never edited
     - commit message starts with "self-merge:"
     - the run's log entry names each self-merge commit
 
