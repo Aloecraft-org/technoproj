@@ -102,7 +102,7 @@ jobs:
 
       # `job_workflow_sha` is the commit THIS file was read from. Installing
       # the engine from it means the tool and the workflow are one version
-      # by construction: a caller pins `@v0.3.0` once and cannot end up
+      # by construction: a caller pins `@v0.3.1` once and cannot end up
       # running v0.3.0's workflow against some other release's engine, which
       # is the drift a second pin would reintroduce.
       #

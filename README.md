@@ -71,11 +71,11 @@ jobs:
 
 ```yaml
   preflight:
-    uses: Aloecraft-org/technoproj/.github/workflows/release-preflight.yml@v0.3.0
+    uses: Aloecraft-org/technoproj/.github/workflows/release-preflight.yml@v0.3.1
   publish:
     permissions:
       contents: write        # the caller grants it; a called workflow cannot
-    uses: Aloecraft-org/technoproj/.github/workflows/release-publish.yml@v0.3.0
+    uses: Aloecraft-org/technoproj/.github/workflows/release-publish.yml@v0.3.1
 ```
 
 There is one pin to keep, not two: the shared workflows install the engine
