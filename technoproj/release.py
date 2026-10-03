@@ -568,6 +568,22 @@ def check_workflow(proj, quiet=False):
             bad.append("%s: `uses: %s` must pin a technoproj release tag "
                        "(`@vX.Y.Z`). A release pipeline that tracks a branch "
                        "changes when nobody touched it." % (path, u))
+    # The engine is not found from the pin alone: job_workflow_sha is empty
+    # for a caller in another repository, so preflight is told which
+    # technoproj to install, and it must be the release the pin names.
+    for j in pre:
+        u = str(j.get("uses", ""))
+        if u.startswith("./"):
+            continue
+        ref = u.split("@")[-1] if "@" in u else ""
+        given = str(((j.get("with") or {}).get("technoproj")) or "")
+        if given != ref:
+            bad.append("%s: the preflight job must pass `technoproj: %s`, the "
+                       "same tag as its `uses:` pin (it passes %s). The "
+                       "workflow cannot see its own commit when another "
+                       "repository calls it, so without this it installs "
+                       "the wrong engine or none." % (path, ref or "the pinned tag",
+                                                     "`%s`" % given if given else "nothing"))
     for j in pub:
         if (j.get("permissions") or {}).get("contents") != "write":
             bad.append("%s: the job calling the publish workflow must set "

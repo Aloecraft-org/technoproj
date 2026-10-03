@@ -11,8 +11,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 `v0.4.1`
 
-Three fixes to the shared release workflows, found by moving aloelite
-onto them. None changes the contract a caller writes against.
+Four fixes to the shared release workflows, found by moving aloelite
+and dirt-launcher onto them. One changes the contract a caller writes
+against: a caller from another repository now passes `technoproj:`
+to the preflight job, equal to its `uses:` pin.
 
 ### Fixed
 
@@ -36,6 +38,16 @@ onto them. None changes the contract a caller writes against.
   `ALIGNMENT.md` §5 records from aloeschema's v0.3.0, reintroduced in
   the workflow written to end it. Preflight now prefers the default
   branch among the candidates.
+- `release-preflight.yml` installed the engine from the caller's own
+  commit. It meant to install from `job_workflow_sha`, the commit the
+  workflow was read from, and fell back to `github.sha` when that was
+  empty; it is empty for a call from another repository too, so
+  dirt-launcher's rehearsal at `@v0.4.0` tried to `pip install`
+  technoproj at a dirt-launcher commit. `github.sha` is now used only
+  in technoproj itself. Every other caller passes `technoproj:` with
+  the same tag as its `uses:` pin, `technoproj release check-workflow`
+  fails a caller that does not, and the install step says so instead
+  of installing something else.
 
 
 ## [0.4.0] - 2026-10-03
