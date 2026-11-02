@@ -89,3 +89,20 @@ def test_version_mk_sync_and_check(tmp_path):
     assert cli("check").returncode == 0              # placed
     (tmp_path / "script" / "version.mk").write_text("drifted\n")
     assert cli("check").returncode == 1              # drifted
+
+
+def test_release_commit_sh_is_placed_executable_and_held(tmp_path):
+    env = dict(os.environ, TECHNO_ROOT=str(tmp_path))
+    def cli(*a):
+        return subprocess.run([sys.executable, "-m", "technoproj.cli", *a],
+                              env=env, capture_output=True, text=True)
+    assert cli("sync").returncode == 0
+    placed = tmp_path / "script" / "release-commit.sh"
+    assert placed.is_file() and os.access(str(placed), os.X_OK)
+    assert cli("check").returncode == 0
+    placed.write_text("#!/bin/sh\nexit 3\n")
+    r = cli("check")
+    assert r.returncode == 1 and "release-commit.sh has drifted" in r.stderr
+    placed.unlink()
+    r = cli("check")
+    assert r.returncode == 1 and "release-commit.sh is missing" in r.stderr

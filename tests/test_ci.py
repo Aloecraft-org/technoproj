@@ -71,3 +71,71 @@ def test_main_exits_nonzero_and_names_each_problem(tmp_path, capsys):
     root = tree(tmp_path, **{"ci.yml": GOOD.replace("[main]", '["**"]')})
     assert C.main(None, root) == 1
     assert "ci.yml" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# a dev build does not tag a release commit
+# ---------------------------------------------------------------------------
+
+DEV = """name: dev
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+jobs:
+  dev:
+    runs-on: ubuntu-latest
+    steps:
+      - id: guard
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          if script/release-commit.sh; then echo skip=true >> "$GITHUB_OUTPUT"; fi
+      - if: steps.guard.outputs.skip != 'true'
+        run: TAG=$(script/dev-tag.sh)
+"""
+UNGUARDED = DEV.replace(
+    "          if script/release-commit.sh; then echo skip=true >> \"$GITHUB_OUTPUT\"; fi\n",
+    "          true\n")
+
+
+def test_a_guarded_dev_build_passes(tmp_path):
+    assert C.check(tree(tmp_path, **{"dev.yml": DEV})) == []
+
+
+def test_a_dev_build_with_no_release_commit_guard_is_flagged(tmp_path):
+    bad = C.check(tree(tmp_path, **{"dev.yml": UNGUARDED}))
+    assert len(bad) == 1, bad
+    assert "release-commit" in bad[0] and "`push` and `schedule`" in bad[0]
+
+
+def test_each_way_of_cutting_a_dev_tag_needs_the_guard(tmp_path):
+    for i, cut in enumerate(("make dev-tag", "make -f script/version.mk dev-tag",
+                             "technoproj release dev-tag")):
+        text = UNGUARDED.replace("TAG=$(script/dev-tag.sh)", "TAG=$(%s)" % cut)
+        bad = C.check(tree(tmp_path / str(i), **{"dev.yml": text}))
+        assert len(bad) == 1, (cut, bad)
+
+
+def test_the_engine_guard_counts(tmp_path):
+    # `technoproj release dev-tag --if-changed` applies the rule itself, and
+    # `technoproj release release-commit` is the guard spelled in Python.
+    a = UNGUARDED.replace("TAG=$(script/dev-tag.sh)",
+                          "TAG=$(technoproj release dev-tag --if-changed)")
+    b = DEV.replace("script/release-commit.sh", "technoproj release release-commit")
+    for i, text in enumerate((a, b)):
+        assert C.check(tree(tmp_path / str(i), **{"dev.yml": text})) == []
+
+
+def test_a_schedule_alone_still_needs_the_guard(tmp_path):
+    text = UNGUARDED.replace("  push:\n    branches: [main]\n", "")
+    bad = C.check(tree(tmp_path, **{"dev.yml": text}))
+    assert len(bad) == 1 and "`schedule`" in bad[0] and "`push`" not in bad[0]
+
+
+def test_a_dispatch_only_dev_build_needs_no_guard(tmp_path):
+    # Someone asked for that build; cutting it is the point.
+    text = 'on:\n  workflow_dispatch:\njobs:\n  d:\n    runs-on: x\n' \
+           '    steps: [{run: "script/dev-tag.sh"}]\n'
+    assert C.check(tree(tmp_path, **{"dev.yml": text})) == []

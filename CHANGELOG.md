@@ -25,9 +25,26 @@ owner decision already settles stops waiting on the owner.
   but `main` or `master` (or is missing) beside `pull_request`, and
   when there is no `concurrency` group that cancels a superseded
   run. doc/STANDARD.md, "CI triggers", has the shape to copy.
+- `script/release-commit.sh [COMMIT]`, placed by `technoproj sync` and
+  held by `technoproj check`: exit 0 when COMMIT is the commit a
+  production release is cut from, 3 when it is not. It reads the
+  committed `changelog.json` and needs only git and jq. `technoproj
+  release release-commit` is the same rule, read from CHANGELOG.yaml.
+- `technoproj ci check` fails a workflow that cuts dev tags
+  (`script/dev-tag.sh`, `make dev-tag`, or `technoproj release
+  dev-tag` without `--if-changed`) on `push` or `schedule` with no
+  release-commit guard. doc/STANDARD.md, "A release commit is not a
+  dev build", has the guard to copy.
 
 ### Changed
 
+- `technoproj release dev-tag --if-changed` prints nothing and exits
+  3 on a release commit, so the merge of a release-prep pull request
+  no longer gets a dev tag on the commit the real release is
+  building. The shared `release-preflight.yml` cuts dev builds this
+  way, so every caller gets the fix with no change.
+- `technoproj check` also fails when `script/release-commit.sh` is
+  missing or has drifted. Run `technoproj sync` when moving the pin.
 - technoproj's own CI runs on pushes to `main` and on pull requests,
   no longer on every branch push as well, and cancels a superseded
   pull request run.

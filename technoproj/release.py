@@ -323,6 +323,15 @@ def dev_tag(proj, args):
             highest = int(m.group(1))
     tag = "v%s-dev.%d" % (base, highest + 1)
 
+    if args.if_changed:
+        # The merge of a release-prep pull request lands on the default
+        # branch before its release tag exists, so the dev build that merge
+        # triggers would tag the commit the real release is building.
+        # diluvium did: v0.17.4-dev.18 and v0.17.4 both name da9bbdf.
+        is_release, why = release_commit(proj)
+        if is_release:
+            print("%s -- not cutting a dev build of it" % why, file=sys.stderr)
+            return 3
     if args.if_changed and tags:
         # Do not cut the same commit twice: a scheduled or per-merge build
         # that fires with nothing new produces a second tag naming one build.
@@ -348,6 +357,73 @@ def _git(*args):
                               text=True, check=False).stdout.strip()
     except OSError:
         return ""
+
+
+# ---------------------------------------------------------------------------
+# release-commit -- the commit a production release is cut from
+# ---------------------------------------------------------------------------
+
+def _newest_entry(proj, commit):
+    """(status, tag) of the newest entry in `commit`'s committed
+    CHANGELOG.yaml; (None, None) when there is none to read."""
+    import subprocess
+    import yaml
+    try:
+        text = subprocess.run(("git", "show", "%s:CHANGELOG.yaml" % commit),
+                              cwd=root(), capture_output=True, text=True,
+                              check=False)
+    except OSError:
+        return None, None
+    if text.returncode != 0:
+        return None, None
+    try:
+        doc = yaml.safe_load(text.stdout) or {}
+    except yaml.YAMLError:
+        return None, None
+    rels = doc.get("releases") if isinstance(doc, dict) else None
+    if not rels or not isinstance(rels[0], dict):
+        return None, None
+    r = rels[0]
+    tag = r.get("tag")
+    rule = (proj.get("TECHNO_CHANGELOG") or {}).get("tag_rule")
+    if not tag and rule == "derive" and r.get("version"):
+        tag = "v%s" % r["version"]
+    return r.get("status"), tag
+
+
+def release_commit(proj, commit="HEAD"):
+    """-> (is_release_commit, why).
+
+    The rule `script/release-commit.sh` applies to changelog.json, applied
+    here to CHANGELOG.yaml so a repository that emits no JSON has it too:
+    `commit` is a release commit when its newest changelog entry is
+    released and either that entry's tag points at it, or the tag does not
+    exist yet and `commit` is where the entry became released (its first
+    parent did not already have that entry released).
+    """
+    sha = _git("rev-parse", "-q", "--verify", "%s^{commit}" % commit)
+    if not sha:
+        raise ReleaseError("%s is not a commit" % commit)
+    status, tag = _newest_entry(proj, sha)
+    if status != "released" or not tag:
+        return False, "%s's newest changelog entry is not released" % sha[:12]
+    at = _git("rev-parse", "-q", "--verify", "refs/tags/%s^{commit}" % tag)
+    if at:
+        if at == sha:
+            return True, "%s points at %s, a release commit" % (tag, sha[:12])
+        return False, "%s points at %s, not %s" % (tag, at[:12], sha[:12])
+    parent = _git("rev-parse", "-q", "--verify", "%s^1^{commit}" % sha)
+    if parent and _newest_entry(proj, parent) == ("released", tag):
+        return False, ("%s was already released before %s and is not tagged"
+                       % (tag, sha[:12]))
+    return True, ("%s is where %s became released, and it is not tagged yet"
+                  % (sha[:12], tag))
+
+
+def release_commit_command(proj, args):
+    is_release, why = release_commit(proj, args.commit or "HEAD")
+    print(why, file=sys.stderr)
+    return 0 if is_release else 3
 
 
 # ---------------------------------------------------------------------------
@@ -936,6 +1012,8 @@ def cut(proj, args):
 def main(proj, args):
     if args.release_command == "dev-tag":
         return dev_tag(proj, args)
+    if args.release_command == "release-commit":
+        return release_commit_command(proj, args)
     if args.release_command == "plan":
         return plan(proj, args)
     if args.release_command == "preflight":

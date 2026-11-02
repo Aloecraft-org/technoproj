@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""The CI trigger rule: one run per pull request commit.
+"""The CI trigger rules: one run per pull request commit, and no dev tag
+on a release commit.
 
     technoproj ci check        every workflow under .github/workflows
 
@@ -27,8 +28,21 @@ The rule, per workflow that has a `pull_request` trigger:
    so a newer commit on a PR cancels the run it replaces. Leaving a run on
    the default branch uncancelled is the caller's business, and the
    recommended form does (doc/STANDARD.md, "CI triggers").
+
+And per workflow that has a `push` or `schedule` trigger:
+
+3. If a step cuts a dev tag -- runs `script/dev-tag.sh`, `make dev-tag`,
+   or `technoproj release dev-tag` without `--if-changed` -- some step
+   also runs the release-commit guard (`script/release-commit.sh` or
+   `technoproj release release-commit`). The merge of a release-prep pull
+   request lands on the default branch before its release tag exists, so
+   an unguarded dev build tags the commit the real release is building:
+   diluvium's `v0.17.4-dev.18` and `v0.17.4` both name da9bbdf.
+   `technoproj release dev-tag --if-changed` applies the guard itself,
+   which is how the shared release-preflight.yml is covered.
 """
 import os
+import re
 
 DEFAULT_BRANCHES = ("main", "master")
 
@@ -84,7 +98,47 @@ def pull_request_runs_cancel(path, wf):
     return []
 
 
-RULES = (push_duplicates_pull_request, pull_request_runs_cancel)
+# What cuts a dev tag, and what guards it, matched as text in each step's
+# `run:` anywhere in the workflow. Shell is not parsed, so a guard that is
+# only named in a comment passes; the rule catches the workflow that has
+# no guard at all, which is the shape that tagged da9bbdf.
+CUTS_DEV_TAG = re.compile(
+    r"dev-tag\.sh"
+    r"|\bmake\b[^\n]*\bdev-tag\b"
+    r"|\btechnoproj\s+release\s+dev-tag\b(?![^\n]*--if-changed)")
+GUARDS_RELEASE_COMMIT = re.compile(
+    r"release-commit\.sh|\btechnoproj\s+release\s+release-commit\b")
+
+
+def _runs(wf):
+    jobs = wf.get("jobs") or {}
+    for job in (jobs.values() if isinstance(jobs, dict) else ()):
+        steps = job.get("steps") if isinstance(job, dict) else None
+        for step in steps or ():
+            if isinstance(step, dict) and isinstance(step.get("run"), str):
+                yield step["run"]
+
+
+def dev_build_skips_a_release_commit(path, wf):
+    on = _on(wf)
+    events = [e for e in ("push", "schedule") if e in on]
+    if not events:
+        return []
+    runs = list(_runs(wf))
+    if not any(CUTS_DEV_TAG.search(r) for r in runs):
+        return []
+    if any(GUARDS_RELEASE_COMMIT.search(r) for r in runs):
+        return []
+    return ["%s: cuts a dev tag on %s with no release-commit guard, so the "
+            "merge of a release-prep pull request gets a dev tag on the "
+            "commit the real release is building. Skip the cut on push and "
+            "schedule when `script/release-commit.sh` exits 0 "
+            "(doc/STANDARD.md, \"A release commit is not a dev build\")."
+            % (path, " and ".join("`%s`" % e for e in events))]
+
+
+RULES = (push_duplicates_pull_request, pull_request_runs_cancel,
+         dev_build_skips_a_release_commit)
 
 
 def _names():
@@ -122,6 +176,7 @@ def main(args, root):
     for b in bad:
         print(b)
     if not bad:
-        print("ok: %d workflow(s) run once per pull request commit"
+        print("ok: %d workflow(s) run once per pull request commit, and "
+              "none tags a release commit as a dev build"
               % len(workflows(root)))
     return 1 if bad else 0
