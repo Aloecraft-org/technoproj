@@ -1,10 +1,19 @@
 name: ci
 
 on:
+  # Push on the default branch only: a pull request's commits are checked
+  # by its `pull_request` run, and a branch push trigger ran them twice.
+  # `technoproj ci check` below holds this, here and in every consumer.
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
+
+# A newer commit on a pull request cancels the run it replaces; runs on
+# `main` are never cancelled.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
@@ -47,6 +56,8 @@ jobs:
       # repository that adopts it.
       - name: the release workflow conforms
         run: technoproj release check-workflow
+      - name: every workflow runs once per pull request commit
+        run: technoproj ci check
       - name: every release gate passes
         run: technoproj release preflight
       # The shared workflows are the deliverable; a syntax error in one is

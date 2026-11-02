@@ -47,6 +47,7 @@ not of usage. In CI:
 technoproj check                     # version.mk has not drifted
 technoproj lockstep check            # the operating layout holds
 technoproj release check-workflow    # the release workflow still conforms
+technoproj ci check                  # every workflow runs once per PR commit
 technoproj-changelog check           # the generated files match the YAML
 technoproj-changelog consistency     # the tree agrees with the newest entry
 technoproj-changelog release-check --tag "$TAG" --publish

@@ -13,6 +13,7 @@ copy is checked rather than trusted.
     technoproj dollup-manifest   build a dollup package from .technoproj
     technoproj release ...       the release process (see release.py)
     technoproj lockstep ...      the operating layout (see lockstep.py)
+    technoproj ci check          one run per pull request commit (see ci.py)
 
 `sync` is how a repository adopts a new version.mk; `check` in CI is what
 stops the copy going stale, which is the failure this package exists to end
@@ -155,6 +156,11 @@ def main(argv=None) -> int:
                      help="actually dispatch; without it this only prints "
                           "what it would send")
 
+    ci = sub.add_parser("ci", help="the CI trigger rule")
+    csub = ci.add_subparsers(dest="ci_command", required=True)
+    csub.add_parser("check", help="one run per pull request commit, in every "
+                                  "workflow (CI)")
+
     ls = sub.add_parser("lockstep", help="the operating layout")
     lsub = ls.add_subparsers(dest="lockstep_command", required=True)
     li = lsub.add_parser("init", help="place every missing file, then sync; "
@@ -164,6 +170,10 @@ def main(argv=None) -> int:
     lsub.add_parser("check", help="every gap, in the order to fix it (CI)")
 
     args = ap.parse_args(argv)
+
+    if args.command == "ci":
+        from . import ci as _ci
+        return _ci.main(args, root())
 
     if args.command == "lockstep":
         from . import lockstep as _lockstep
