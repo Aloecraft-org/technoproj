@@ -502,6 +502,7 @@ since a dispatched run is not on the tag.
 ```sh
 technoproj check                     # version.mk has not drifted
 technoproj release check-workflow    # the release workflow still conforms
+technoproj ci check                  # every workflow runs once per PR commit
 technoproj release preflight         # every release gate, in rehearsal mode
 technoproj-changelog check           # the generated files match the YAML
 technoproj-changelog consistency     # the tree agrees with the newest entry
@@ -509,6 +510,31 @@ technoproj-changelog consistency     # the tree agrees with the newest entry
 
 `preflight` without `--publish` is the rehearsal, which is what every commit
 between one release and the next should pass.
+
+### CI triggers
+
+A workflow a pull request triggers runs once per commit. `push` names only
+the default branch beside `pull_request`, and a newer commit on a pull
+request cancels the run it replaces:
+
+```yaml
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+```
+
+A push trigger on every branch, or on a work-branch glob such as
+`claude/**`, fires beside `pull_request` for the same commit and runs the
+workflow twice. The `pull_request` run is the one a merge rule counts. Runs
+on `main` are not cancelled, so every merge keeps its own complete run.
+`technoproj ci check` fails on either gap in any workflow under
+`.github/workflows/`; a push trigger with only `tags` is not a branch and
+passes.
 
 ---
 
@@ -697,6 +723,7 @@ technoproj release plan              # what a release of this tree would be
 technoproj release preflight         # every gate CI runs, run here first
 technoproj release doctor            # what is missing, and which route is open
 technoproj release check-workflow    # the workflow conforms (CI)
+technoproj ci check                  # one run per pull request commit (CI)
 technoproj release cut --tag v0.4.0 --publish --yes
 
 technoproj-changelog validate | check | consistency | generate

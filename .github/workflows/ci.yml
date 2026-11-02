@@ -1,17 +1,32 @@
 name: ci
 
 on:
+  # Push on the default branch only: a pull request's commits are checked
+  # by its `pull_request` run, and a branch push trigger ran them twice.
+  # `technoproj ci check` below holds this, here and in every consumer.
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
+# A newer commit on a pull request cancels the run it replaces; runs on
+# `main` are never cancelled.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ["3.9", "3.12"]
+        include:
+          # requires-python is >=3.9, but ubuntu-latest (26.04) has no 3.9
+          # build, so the floor runs on the newest image that still has one.
+          - python-version: "3.9"
+            os: ubuntu-24.04
+          - python-version: "3.12"
+            os: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -47,6 +62,8 @@ jobs:
       # repository that adopts it.
       - name: the release workflow conforms
         run: technoproj release check-workflow
+      - name: every workflow runs once per pull request commit
+        run: technoproj ci check
       - name: every release gate passes
         run: technoproj release preflight
       # The shared workflows are the deliverable; a syntax error in one is
