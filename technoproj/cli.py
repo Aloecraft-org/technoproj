@@ -6,8 +6,9 @@ make fragment, and `make` has to be able to read it with no network and no
 virtualenv active. So it is *copied into* the consuming repository, and the
 copy is checked rather than trusted.
 
-    technoproj sync              write script/version.mk from the package
-    technoproj check             fail if the copy has drifted (for CI)
+    technoproj sync              write script/version.mk and
+                                 script/release-commit.sh from the package
+    technoproj check             fail if a copy has drifted (for CI)
     technoproj version           the installed engine version
     technoproj show              this repo's version in every spelling
     technoproj dollup-manifest   build a dollup package from .technoproj
@@ -38,12 +39,22 @@ except ImportError:                      # pragma: no cover
 
 TARGET = Path("script") / "version.mk"
 
+# Every file `sync` places and `check` holds to the package: (name under
+# technoproj/data, where it goes, mode). release-commit.sh is the guard a
+# dev-build workflow runs so it does not tag a release commit
+# (doc/STANDARD.md, "Dev builds"); it was written per repository in
+# diluvium and diluvium-drt, which is the drift this package exists to end.
+PLACED = (
+    ("version.mk", TARGET, 0o644),
+    ("release-commit.sh", Path("script") / "release-commit.sh", 0o755),
+)
 
-def source() -> Path:
-    """The version.mk inside the installed package."""
+
+def source(name="version.mk") -> Path:
+    """A placed file inside the installed package."""
     if _files is not None:
-        return Path(str(_files("technoproj") / "data" / "version.mk"))
-    return Path(__file__).resolve().parent / "data" / "version.mk"   # pragma: no cover
+        return Path(str(_files("technoproj") / "data" / name))
+    return Path(__file__).resolve().parent / "data" / name   # pragma: no cover
 
 
 def root() -> Path:
@@ -103,8 +114,9 @@ def project_command(args) -> int:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="technoproj", description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="command", required=True)
-    for name, help_ in (("sync", "write script/version.mk from the package"),
-                        ("check", "fail if the copy has drifted (for CI)"),
+    for name, help_ in (("sync", "write script/version.mk and "
+                                 "script/release-commit.sh from the package"),
+                        ("check", "fail if a placed copy has drifted (for CI)"),
                         ("version", "the installed engine version"),
                         ("show", "this repo's version in every spelling")):
         sub.add_parser(name, help=help_)
@@ -139,6 +151,11 @@ def main(argv=None) -> int:
                          "already names HEAD")
     dt.add_argument("--force", action="store_true",
                     help="print it even where dev builds are not declared")
+    rc = rsub.add_parser("release-commit",
+                         help="exit 0 when COMMIT is the commit a production "
+                              "release is cut from, 3 when it is not")
+    rc.add_argument("commit", nargs="?", default="HEAD",
+                    help="the commit to ask about (default: HEAD)")
     doc = rsub.add_parser("doctor",
                           help="what this repo is missing, and which release "
                                "route is open")
@@ -194,10 +211,11 @@ def main(argv=None) -> int:
     if args.command in ("show", "dollup-manifest"):
         return project_command(args)
 
-    src = source()
-    if not src.is_file():
-        print("technoproj: packaged version.mk is missing (%s)" % src, file=sys.stderr)
-        return 1
+    for name, _dest, _mode in PLACED:
+        if not source(name).is_file():
+            print("technoproj: packaged %s is missing (%s)"
+                  % (name, source(name)), file=sys.stderr)
+            return 1
 
     if args.command == "version":
         try:
@@ -207,29 +225,34 @@ def main(argv=None) -> int:
             print("unknown (not installed)")
         return 0
 
-    dest = root() / TARGET
-
     if args.command == "sync":
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        if dest.is_file() and filecmp.cmp(src, dest, shallow=False):
-            print("unchanged %s" % TARGET)
-            return 0
-        shutil.copyfile(src, dest)
-        print("wrote %s" % TARGET)
+        for name, rel, mode in PLACED:
+            src, dest = source(name), root() / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if dest.is_file() and filecmp.cmp(src, dest, shallow=False):
+                print("unchanged %s" % rel)
+            else:
+                shutil.copyfile(src, dest)
+                print("wrote %s" % rel)
+            os.chmod(dest, mode)
         return 0
 
     # check
-    if not dest.is_file():
-        print("technoproj: %s is missing -- run 'technoproj sync'" % TARGET,
-              file=sys.stderr)
-        return 1
-    if filecmp.cmp(src, dest, shallow=False):
-        print("OK: %s matches the installed technoproj" % TARGET)
-        return 0
-    print("technoproj: %s has drifted from the installed technoproj -- "
-          "run 'technoproj sync' and commit the result" % TARGET, file=sys.stderr)
-    return 1
-
+    bad = 0
+    for name, rel, _mode in PLACED:
+        src, dest = source(name), root() / rel
+        if not dest.is_file():
+            print("technoproj: %s is missing -- run 'technoproj sync'" % rel,
+                  file=sys.stderr)
+            bad = 1
+        elif filecmp.cmp(src, dest, shallow=False):
+            print("OK: %s matches the installed technoproj" % rel)
+        else:
+            print("technoproj: %s has drifted from the installed technoproj -- "
+                  "run 'technoproj sync' and commit the result" % rel,
+                  file=sys.stderr)
+            bad = 1
+    return bad
 
 if __name__ == "__main__":
     sys.exit(main())

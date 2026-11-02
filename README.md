@@ -31,7 +31,7 @@ that changes when nobody touched it.
 ## What a consuming repository does
 
 ```sh
-technoproj sync                      # place script/version.mk
+technoproj sync                      # place script/version.mk, script/release-commit.sh
 technoproj show                      # this repo's version, every spelling
 technoproj release doctor            # what this repo still needs
 technoproj-changelog validate        # schema + consistency
@@ -47,7 +47,7 @@ not of usage. In CI:
 technoproj check                     # version.mk has not drifted
 technoproj lockstep check            # the operating layout holds
 technoproj release check-workflow    # the release workflow still conforms
-technoproj ci check                  # every workflow runs once per PR commit
+technoproj ci check                  # once per PR commit; no dev tag on a release commit
 technoproj-changelog check           # the generated files match the YAML
 technoproj-changelog consistency     # the tree agrees with the newest entry
 technoproj-changelog release-check --tag "$TAG" --publish

@@ -536,6 +536,13 @@ on `main` are not cancelled, so every merge keeps its own complete run.
 `.github/workflows/`; a push trigger with only `tags` is not a branch and
 passes.
 
+A workflow that cuts dev tags on `push` or `schedule` skips a release
+commit. It fails `technoproj ci check` when a step runs
+`script/dev-tag.sh`, `make dev-tag` or `technoproj release dev-tag`
+without `--if-changed`, and no step runs `script/release-commit.sh` or
+`technoproj release release-commit`. See [A release commit is not a dev
+build](#a-release-commit-is-not-a-dev-build) for the guard.
+
 ---
 
 # Part 3 — Cutting a release
@@ -691,6 +698,50 @@ mis-stamped tree, not a release.
 `technoproj release cut`, with the changelog entry marked `released`. Merging
 never ships that.
 
+### A release commit is not a dev build
+
+The merge of a release-prep pull request lands on the default branch
+before its release tag exists, so the dev build that merge triggers would
+tag the commit the real release is building. diluvium did this for 0.17.4:
+`v0.17.4-dev.18` and `v0.17.4` both name `da9bbdf`.
+
+A commit is a **release commit** when the newest entry of its committed
+changelog is `released`, and either that entry's tag points at it, or the
+tag does not exist yet and the commit is where the entry became released
+(its first parent did not already have that entry released).
+
+```sh
+script/release-commit.sh [COMMIT]          # exit 0 a release commit, 3 not
+technoproj release release-commit [COMMIT] # the same rule, from CHANGELOG.yaml
+```
+
+`technoproj sync` places `script/release-commit.sh` beside `version.mk`, and
+`technoproj check` fails when the copy drifts. It reads the committed
+`changelog.json` and needs only git and jq, so it runs before any Python
+is installed. `technoproj release dev-tag --if-changed` applies the rule
+itself, which is how the shared `release-preflight.yml` skips a release
+commit with no change to a caller.
+
+A workflow that cuts its own dev tags skips the cut on `push` and
+`schedule` runs of a release commit. A `workflow_dispatch` still cuts,
+because someone asked for that build:
+
+```yaml
+      - name: Skip a release commit
+        id: guard
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          if script/release-commit.sh; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Cut the dev tag
+        if: steps.guard.outputs.skip != 'true'
+        run: echo "tag=$(script/dev-tag.sh)" >> "$GITHUB_OUTPUT"
+```
+
+The checkout needs `fetch-depth: 0`, or at least the tags and the first
+parent, for the guard to see them.
+
 ---
 
 # Part 4 — Adopting
@@ -702,7 +753,8 @@ gaps marked. In order:
    `pip install "git+https://github.com/Aloecraft-org/technoproj@v0.4.1"`
 2. **Declare `TECHNO_CHANGELOG`** in `.technoproj`, run `generate`, diff
    against the committed files, then delete `script/changelog.py`.
-3. **`technoproj sync`** to place `script/version.mk`; commit it.
+3. **`technoproj sync`** to place `script/version.mk` and
+   `script/release-commit.sh`; commit them.
 4. **Declare `TECHNO_RELEASE`** — usually three lines; every field has a
    default.
 5. **Add `release.yml`** from Part 2.
@@ -717,13 +769,14 @@ otherwise.
 
 ```sh
 technoproj show                      # this repo's version, every spelling
-technoproj sync | check              # place / verify script/version.mk
+technoproj sync | check              # place / verify script/version.mk, release-commit.sh
 technoproj lockstep init | sync | check   # the operating layout (LOCKSTEP.md)
 technoproj release plan              # what a release of this tree would be
 technoproj release preflight         # every gate CI runs, run here first
 technoproj release doctor            # what is missing, and which route is open
 technoproj release check-workflow    # the workflow conforms (CI)
-technoproj ci check                  # one run per pull request commit (CI)
+technoproj ci check                  # one run per PR commit, no dev tag on a release (CI)
+technoproj release release-commit    # exit 0 when HEAD is a release commit
 technoproj release cut --tag v0.4.0 --publish --yes
 
 technoproj-changelog validate | check | consistency | generate

@@ -32,6 +32,7 @@ include = ["technoproj*"]
 [tool.setuptools.package-data]
 technoproj = [
     "data/*.mk",
+    "data/*.sh",
     "profiles/*.json",
     "data/lockstep/shared/*.md",
     "data/lockstep/scaffold/claude/*.md",
