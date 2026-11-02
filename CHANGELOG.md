@@ -23,6 +23,9 @@ owner decision already settles stops waiting on the owner.
 
 ### Changed
 
+- `ALIGNMENT.md` §7: a nightly skips an unchanged HEAD only when the
+  last dev tag's release exists. A tag whose build failed is rebuilt,
+  so one failed run no longer stalls dev builds until HEAD moves.
 - `operating.md` step 7: with `dispatch.escalate` set, queueing a
   question for the owner also appends a dispatch to that name asking
   the same question and linking the queue item. Step 2: a queue item

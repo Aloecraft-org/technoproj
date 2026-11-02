@@ -663,7 +663,9 @@ PyPI, which is why the exclusion is not optional.
 
 - `prerelease: true`, always.
 - Nightly: every 24 hours, and **skip if HEAD is unchanged** since the last
-  dev tag, or identical builds accumulate.
+  dev tag, or identical builds accumulate. Skip only if that tag's release
+  exists: a build that failed after its tag was pushed is rebuilt from the
+  same tag, or every later nightly skips it until HEAD moves.
 - Manual: a `workflow_dispatch` with a `ref` input, so any branch can be cut.
 - Prune your own old dev *GitHub* releases.
 - Dev builds do **not** go in the project's main release mirror: `MIRROR_KEEP`
